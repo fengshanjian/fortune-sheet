@@ -10,6 +10,10 @@ export function getAllSheets(ctx: Context) {
   return ctx.luckysheetfile;
 }
 
+export function getCurrentSheetId(ctx: Context) {
+  return ctx.currentSheetId;
+}
+
 export { getSheet };
 
 export function initSheetData(

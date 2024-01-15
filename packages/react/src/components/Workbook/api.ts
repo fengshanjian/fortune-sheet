@@ -243,6 +243,8 @@ export function generateAPIs(
 
     getAllSheets: () => api.getAllSheets(context),
 
+    getCurrentSheetId: () => api.getCurrentSheetId(context),
+
     getSheet: (options: api.CommonOptions = {}) =>
       api.getSheetWithLatestCelldata(context, options),
 
