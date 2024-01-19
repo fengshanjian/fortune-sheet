@@ -119,8 +119,9 @@ export type Image = {
 };
 
 export type Sheet = {
-  enterType?: string;
-  excelType?: string;
+  excelType?: string; // normal | PHA
+  enterType?: string; //  normal，默认, addRow：添加一行 addRowAndIndex：添加一行并添加序号  addRowMerge:添加一行并合并前向单元格 addRowMergeAndIndex：添加一行，并合并前向单元格，并添加序号
+  enterExcludeCols?: number[]; // addRowMerge或addRowMergeAndIndex时，排除的列
   name: string;
   config?: SheetConfig;
   order?: number;

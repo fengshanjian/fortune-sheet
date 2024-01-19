@@ -123,8 +123,6 @@ export type Hooks = {
 };
 
 export type Settings = {
-  excelType?: string;
-  enterType?: string;
   column?: number;
   row?: number;
   addRows?: number;
@@ -160,8 +158,6 @@ export type Settings = {
 };
 
 export const defaultSettings: Required<Settings> = {
-  excelType: "normal", // normal | PHA
-  enterType: "normal", //  normal，默认, addRow：添加一行 addRowAndIndex：添加一行并添加序号  addRowMerge:添加一行并合并前向单元格 addRowMergeAndIndex：添加一行，并合并前向单元格，并添加序号
   column: 60, // 空表格默认的列数量
   row: 84, // 空表格默认的行数据量
   addRows: 50, // It will add the rows when we click on add row button

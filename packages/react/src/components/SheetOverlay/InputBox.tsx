@@ -165,7 +165,7 @@ const InputBox: React.FC = () => {
           e.stopPropagation();
         }
         const position = context.luckysheet_select_save?.[0]?.row?.[0];
-        const col = context.luckysheet_select_save?.[0]?.column?.[0];
+        const col = context.luckysheet_select_save?.[0]?.column?.[0] ?? 0;
 
         if (position == null || position === 0) return;
         const count = 1;
@@ -188,6 +188,12 @@ const InputBox: React.FC = () => {
                 (draftCtx.luckysheetfile[0].enterType === "addRow" ||
                   draftCtx.luckysheetfile[0].enterType === "addRowAndIndex") &&
                 col !== 0
+              ) {
+                return;
+              }
+              if (
+                draftCtx.luckysheetfile[0].enterExcludeCols &&
+                draftCtx.luckysheetfile[0].enterExcludeCols.includes(col)
               ) {
                 return;
               }
