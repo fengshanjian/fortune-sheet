@@ -119,6 +119,8 @@ export type Image = {
 };
 
 export type Sheet = {
+  enterType?: string;
+  excelType?: string;
   name: string;
   config?: SheetConfig;
   order?: number;

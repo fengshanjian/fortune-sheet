@@ -276,3 +276,30 @@ export function isAllowEdit(
     }) && (_.isUndefined(ctx.allowEdit) ? true : ctx.allowEdit)
   );
 }
+
+export function formatBorderInfo(rowCount: number, colCount: number): any[] {
+  return [
+    {
+      rangeType: "range",
+      borderType: "border-all",
+      color: "#000000",
+      style: "1",
+      range: [
+        {
+          left: 0,
+          width: 73,
+          top: 0,
+          height: 19,
+          left_move: 0,
+          width_move: 739,
+          top_move: 0,
+          height_move: 99,
+          row: [0, rowCount - 1],
+          column: [0, colCount - 1],
+          row_focus: 0,
+          column_focus: 0,
+        },
+      ],
+    },
+  ];
+}

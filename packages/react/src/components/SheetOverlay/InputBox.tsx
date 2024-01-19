@@ -16,6 +16,7 @@ import {
   israngeseleciton,
   escapeHTMLTag,
   isAllowEdit,
+  insertRowColForCustom,
 } from "@fortune-sheet/core";
 import React, {
   useContext,
@@ -27,7 +28,7 @@ import React, {
   useState,
 } from "react";
 import _ from "lodash";
-import WorkbookContext from "../../context";
+import WorkbookContext, { SetContextOptions } from "../../context";
 import ContentEditable from "./ContentEditable";
 import FormulaSearch from "./FormulaSearch";
 import FormulaHint from "./FormulaHint";
@@ -163,6 +164,48 @@ const InputBox: React.FC = () => {
           document.execCommand("delete", false);
           e.stopPropagation();
         }
+        const position = context.luckysheet_select_save?.[0]?.row?.[0];
+        const col = context.luckysheet_select_save?.[0]?.column?.[0];
+
+        if (position == null || position === 0) return;
+        const count = 1;
+        const direction = "rightbottom";
+        const insertRowColOp: SetContextOptions["insertRowColOp"] = {
+          type: "row",
+          index: position,
+          count,
+          direction,
+          id: context.currentSheetId,
+        };
+
+        setTimeout(() => {
+          setContext(
+            (draftCtx) => {
+              if (draftCtx.luckysheetfile[0].enterType === "normal") {
+                return;
+              }
+              if (
+                (draftCtx.luckysheetfile[0].enterType === "addRow" ||
+                  draftCtx.luckysheetfile[0].enterType === "addRowAndIndex") &&
+                col !== 0
+              ) {
+                return;
+              }
+              try {
+                insertRowColForCustom(
+                  draftCtx,
+                  insertRowColOp,
+                  col,
+                  draftCtx.luckysheetfile[0].enterType
+                );
+                draftCtx.contextMenu = {};
+              } catch (err: any) {
+                draftCtx.contextMenu = {};
+              }
+            },
+            { insertRowColOp }
+          );
+        }, 100);
         // if (
         //   $("#luckysheet-formula-search-c").is(":visible") &&
         //   formula.searchFunctionCell != null
@@ -223,7 +266,13 @@ const InputBox: React.FC = () => {
             formulaMoveEvent("right", ctrlKey, shiftKey, event);
           } */
     },
-    [context.luckysheetCellUpdate.length, refs.cellInput, setContext]
+    [
+      context.luckysheetCellUpdate.length,
+      refs.cellInput,
+      setContext,
+      context.luckysheet_select_save,
+      context.currentSheetId,
+    ]
   );
 
   const onChange = useCallback(

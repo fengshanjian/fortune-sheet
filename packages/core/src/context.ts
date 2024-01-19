@@ -453,7 +453,7 @@ export function defaultContext(refs: RefValues): Context {
       fs: 11,
       ht: 1,
       it: 0,
-      vt: 1,
+      vt: 0,
       m: "",
       v: "",
     },

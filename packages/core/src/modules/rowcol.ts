@@ -1,9 +1,11 @@
 import _ from "lodash";
 import { Context } from "../context";
-import { Sheet } from "../types";
-import { getSheetIndex } from "../utils";
-import { getcellFormula } from "./cell";
+import { Sheet, Range } from "../types";
+import { getSheetIndex, formatBorderInfo } from "../utils";
+import { getcellFormula, setCellValue } from "./cell";
 import { functionStrChange } from "./formula";
+import { mergeCells } from "./merge";
+import { setSelection } from "../api/range";
 
 const refreshLocalMergeData = (merge_new: Record<string, any>, file: Sheet) => {
   Object.entries(merge_new).forEach(([, v]) => {
@@ -1153,6 +1155,11 @@ export function insertRowCol(
 
   refreshLocalMergeData(merge_new, file);
 
+  if (ctx.luckysheetfile[0]?.excelType === "PHA") {
+    const borderInfo = formatBorderInfo(file.row ?? 1, file.column ?? 1);
+    file.config.borderInfo = borderInfo;
+  }
+
   // if (type === "row") {
   //   const scrollLeft = $("#luckysheet-cell-main").scrollLeft();
   //   const scrollTop = $("#luckysheet-cell-main").scrollTop();
@@ -1174,7 +1181,1291 @@ export function insertRowCol(
   //   }
   // }
 }
+/**
+ * 增加行列
+ * @param {string} type 行或列 ['row', 'column'] 之一
+ * @param {number} index 插入的位置 index
+ * @param {number} count 插入 多少 行（列）
+ * @param {string} direction 哪个方向插入 ['lefttop','rightbottom'] 之一
+ * @param {string | number} id 操作的 sheet 的 id
+ * @returns
+ */
+export function insertRowColForCustom(
+  ctx: Context,
+  op: {
+    type: "row" | "column";
+    index: number;
+    count: number;
+    direction: "lefttop" | "rightbottom";
+    id: string;
+  },
+  currentCol: number = 0,
+  enterType: string = "normal",
+  changeSelection: boolean = true
+) {
+  let { count, id } = op;
+  const { type, index, direction } = op;
+  id = id || ctx.currentSheetId;
 
+  // if (
+  //   type === "row" &&
+  //   !checkProtectionAuthorityNormal(sheetId, "insertRows")
+  // ) {
+  //   return;
+  // } else if (
+  //   type === "column" &&
+  //   !checkProtectionAuthorityNormal(sheetId, "insertColumns")
+  // ) {
+  //   return;
+  // }
+
+  const curOrder = getSheetIndex(ctx, id);
+  if (curOrder == null) return;
+
+  const file = ctx.luckysheetfile[curOrder];
+  if (!file) return;
+
+  const d = file.data;
+  if (!d) return;
+
+  const cfg = file.config || {};
+
+  if (changeSelection) {
+    if (type === "row") {
+      if (cfg.rowReadOnly?.[index]) {
+        throw new Error("readOnly");
+      }
+    } else {
+      if (cfg.colReadOnly?.[index]) {
+        throw new Error("readOnly");
+      }
+    }
+  }
+
+  if (type === "row" && d.length + count >= 10000) {
+    throw new Error("maxExceeded");
+  }
+
+  if (type === "column" && d[0] && d[0].length + count >= 1000) {
+    throw new Error("maxExceeded");
+  }
+
+  count = Math.floor(count);
+
+  // 合并单元格配置变动
+  if (cfg.merge == null) {
+    cfg.merge = {};
+  }
+
+  const merge_new: any = {};
+
+  const merge_old: any = {};
+  _.forEach(cfg.merge, (mc) => {
+    const { r, c, rs, cs } = mc;
+    merge_old[`${r}_${c}`] = { r, c, rs, cs };
+  });
+  if (currentCol > 0) {
+    // eslint-disable-next-line no-plusplus
+    for (let i = 0; i < currentCol; i++) {
+      let add = true;
+      _.forEach(merge_old, (mc) => {
+        const { r, c, rs } = mc;
+        if (c === i) {
+          if (index >= r && index < r + rs) {
+            add = false;
+          }
+        }
+      });
+      if (add) {
+        // eslint-disable-next-line no-plusplus
+        for (let j = i; j < currentCol; j++) {
+          merge_old[`${index}_${j}`] = { r: index, c: j, rs: 1, cs: 1 };
+        }
+        break;
+      }
+    }
+  }
+
+  _.forEach(
+    type === "row" &&
+      (enterType === "addRowMergeAndIndex" || enterType === "addRowMerge")
+      ? merge_old
+      : cfg.merge,
+    (mc) => {
+      const { r, c, rs, cs } = mc;
+      if (type === "row") {
+        if (index < r) {
+          merge_new[`${r + count}_${c}`] = { r: r + count, c, rs, cs };
+        } else if (index === r) {
+          if (direction === "lefttop") {
+            merge_new[`${r + count}_${c}`] = {
+              r: r + count,
+              c,
+              rs,
+              cs,
+            };
+          } else {
+            merge_new[`${r}_${c}`] = { r, c, rs: rs + count, cs };
+          }
+        } else if (index < r + rs - 1) {
+          merge_new[`${r}_${c}`] = { r, c, rs: rs + count, cs };
+        } else if (index === r + rs - 1) {
+          if (direction === "lefttop") {
+            merge_new[`${r}_${c}`] = { r, c, rs: rs + count, cs };
+          } else {
+            merge_new[`${r}_${c}`] = { r, c, rs: rs + count, cs };
+          }
+        } else {
+          merge_new[`${r}_${c}`] = { r, c, rs, cs };
+        }
+      } else if (type === "column") {
+        if (index < c) {
+          merge_new[`${r}_${c + count}`] = {
+            r,
+            c: c + count,
+            rs,
+            cs,
+          };
+        } else if (index === c) {
+          if (direction === "lefttop") {
+            merge_new[`${r}_${c + count}`] = {
+              r,
+              c: c + count,
+              rs,
+              cs,
+            };
+          } else {
+            merge_new[`${r}_${c}`] = { r, c, rs, cs: cs + count };
+          }
+        } else if (index < c + cs - 1) {
+          merge_new[`${r}_${c}`] = { r, c, rs, cs: cs + count };
+        } else if (index === c + cs - 1) {
+          if (direction === "lefttop") {
+            merge_new[`${r}_${c}`] = { r, c, rs, cs: cs + count };
+          } else {
+            merge_new[`${r}_${c}`] = { r, c, rs, cs };
+          }
+        } else {
+          merge_new[`${r}_${c}`] = { r, c, rs, cs };
+        }
+      }
+    }
+  );
+  cfg.merge = merge_new;
+
+  // 公式配置变动
+  const newCalcChain = [];
+  for (
+    let SheetIndex = 0;
+    SheetIndex < ctx.luckysheetfile.length;
+    SheetIndex += 1
+  ) {
+    if (
+      _.isNil(ctx.luckysheetfile[SheetIndex].calcChain) ||
+      ctx.luckysheetfile.length === 0
+    ) {
+      continue;
+    }
+    const { calcChain } = ctx.luckysheetfile[SheetIndex];
+    const { data } = ctx.luckysheetfile[SheetIndex];
+    for (let i = 0; i < calcChain!.length; i += 1) {
+      const calc: any = _.cloneDeep(calcChain![i]);
+      const calc_r = calc.r;
+      const calc_c = calc.c;
+      const calc_i = calc.id;
+      const calc_funcStr = getcellFormula(ctx, calc_r, calc_c, calc_i);
+
+      if (type === "row" && SheetIndex === curOrder) {
+        const functionStr = `=${functionStrChange(
+          calc_funcStr,
+          "add",
+          "row",
+          direction,
+          index,
+          count
+        )}`;
+
+        if (d[calc_r]?.[calc_c]?.f === calc_funcStr) {
+          d[calc_r]![calc_c]!.f = functionStr;
+        }
+
+        if (direction === "lefttop") {
+          if (calc_r >= index) {
+            calc.r += count;
+          }
+        } else if (direction === "rightbottom") {
+          if (calc_r > index) {
+            calc.r += count;
+          }
+        }
+
+        newCalcChain.push(calc);
+      } else if (type === "row") {
+        const functionStr = `=${functionStrChange(
+          calc_funcStr,
+          "add",
+          "row",
+          direction,
+          index,
+          count
+        )}`;
+
+        if (data![calc_r]?.[calc_c]?.f === calc_funcStr) {
+          data![calc_r]![calc_c]!.f = functionStr;
+        }
+      } else if (type === "column" && SheetIndex === curOrder) {
+        const functionStr = `=${functionStrChange(
+          calc_funcStr,
+          "add",
+          "col",
+          direction,
+          index,
+          count
+        )}`;
+
+        if (d[calc_r]?.[calc_c]?.f === calc_funcStr) {
+          d[calc_r]![calc_c]!.f = functionStr;
+        }
+
+        if (direction === "lefttop") {
+          if (calc_c >= index) {
+            calc.c += count;
+          }
+        } else if (direction === "rightbottom") {
+          if (calc_c > index) {
+            calc.c += count;
+          }
+        }
+
+        newCalcChain.push(calc);
+      } else if (type === "column") {
+        const functionStr = `=${functionStrChange(
+          calc_funcStr,
+          "add",
+          "col",
+          direction,
+          index,
+          count
+        )}`;
+
+        if (data![calc_r]?.[calc_c]?.f === calc_funcStr) {
+          data![calc_r]![calc_c]!.f = functionStr;
+        }
+      }
+    }
+  }
+
+  // 筛选配置变动
+  const { filter_select } = file;
+  const { filter } = file;
+  let newFilterObj: any = null;
+  if (!_.isEmpty(filter_select) && filter_select != null) {
+    newFilterObj = { filter_select: null, filter: null };
+
+    let f_r1 = filter_select.row[0];
+    let f_r2 = filter_select.row[1];
+    let f_c1 = filter_select.column[0];
+    let f_c2 = filter_select.column[1];
+
+    if (type === "row") {
+      if (f_r1 < index) {
+        if (f_r2 === index && direction === "lefttop") {
+          f_r2 += count;
+        } else if (f_r2 > index) {
+          f_r2 += count;
+        }
+      } else if (f_r1 === index) {
+        if (direction === "lefttop") {
+          f_r1 += count;
+          f_r2 += count;
+        } else if (direction === "rightbottom" && f_r2 > index) {
+          f_r2 += count;
+        }
+      } else {
+        f_r1 += count;
+        f_r2 += count;
+      }
+
+      if (filter != null) {
+        newFilterObj.filter = {};
+
+        _.forEach(filter, (v, k) => {
+          const f_rowhidden = filter[k].rowhidden;
+          const f_rowhidden_new: any = {};
+          _.forEach(f_rowhidden, (v1, nstr) => {
+            const n = parseFloat(nstr);
+
+            if (n < index) {
+              f_rowhidden_new[n] = 0;
+            } else if (n === index) {
+              if (direction === "lefttop") {
+                f_rowhidden_new[n + count] = 0;
+              } else if (direction === "rightbottom") {
+                f_rowhidden_new[n] = 0;
+              }
+            } else {
+              f_rowhidden_new[n + count] = 0;
+            }
+          });
+          newFilterObj.filter[k] = _.cloneDeep(filter[k]);
+          newFilterObj.filter[k].rowhidden = f_rowhidden_new;
+          newFilterObj.filter[k].str = f_r1;
+          newFilterObj.filter[k].edr = f_r2;
+        });
+      }
+    } else if (type === "column") {
+      if (f_c1 < index) {
+        if (f_c2 === index && direction === "lefttop") {
+          f_c2 += count;
+        } else if (f_c2 > index) {
+          f_c2 += count;
+        }
+      } else if (f_c1 === index) {
+        if (direction === "lefttop") {
+          f_c1 += count;
+          f_c2 += count;
+        } else if (direction === "rightbottom" && f_c2 > index) {
+          f_c2 += count;
+        }
+      } else {
+        f_c1 += count;
+        f_c2 += count;
+      }
+
+      if (filter != null) {
+        newFilterObj.filter = {};
+
+        _.forEach(filter, (v, k) => {
+          let f_cindex = filter[k].cindex;
+
+          if (f_cindex === index && direction === "lefttop") {
+            f_cindex += count;
+          } else if (f_cindex > index) {
+            f_cindex += count;
+          }
+
+          newFilterObj.filter[f_cindex - f_c1] = _.cloneDeep(filter[k]);
+          newFilterObj.filter[f_cindex - f_c1].cindex = f_cindex;
+          newFilterObj.filter[f_cindex - f_c1].stc = f_c1;
+          newFilterObj.filter[f_cindex - f_c1].edc = f_c2;
+        });
+      }
+    }
+
+    newFilterObj.filter_select = { row: [f_r1, f_r2], column: [f_c1, f_c2] };
+  }
+
+  if (newFilterObj != null && newFilterObj.filter != null) {
+    if (cfg.rowhidden == null) {
+      cfg.rowhidden = {};
+    }
+
+    _.forEach(newFilterObj.filter, (v, k) => {
+      const f_rowhidden = newFilterObj.filter[k].rowhidden;
+      _.forEach(f_rowhidden, (v1, n) => {
+        cfg.rowhidden![n] = 0;
+      });
+    });
+  }
+
+  // 条件格式配置变动
+  const CFarr = file.luckysheet_conditionformat_save;
+  const newCFarr = [];
+  if (CFarr != null && CFarr.length > 0) {
+    for (let i = 0; i < CFarr.length; i += 1) {
+      const cf_range = CFarr[i].cellrange;
+      const cf_new_range = [];
+
+      for (let j = 0; j < cf_range.length; j += 1) {
+        let CFr1 = cf_range[j].row[0];
+        let CFr2 = cf_range[j].row[1];
+        let CFc1 = cf_range[j].column[0];
+        let CFc2 = cf_range[j].column[1];
+
+        if (type === "row") {
+          if (CFr1 < index) {
+            if (CFr2 === index && direction === "lefttop") {
+              CFr2 += count;
+            } else if (CFr2 > index) {
+              CFr2 += count;
+            }
+          } else if (CFr1 === index) {
+            if (direction === "lefttop") {
+              CFr1 += count;
+              CFr2 += count;
+            } else if (direction === "rightbottom" && CFr2 > index) {
+              CFr2 += count;
+            }
+          } else {
+            CFr1 += count;
+            CFr2 += count;
+          }
+        } else if (type === "column") {
+          if (CFc1 < index) {
+            if (CFc2 === index && direction === "lefttop") {
+              CFc2 += count;
+            } else if (CFc2 > index) {
+              CFc2 += count;
+            }
+          } else if (CFc1 === index) {
+            if (direction === "lefttop") {
+              CFc1 += count;
+              CFc2 += count;
+            } else if (direction === "rightbottom" && CFc2 > index) {
+              CFc2 += count;
+            }
+          } else {
+            CFc1 += count;
+            CFc2 += count;
+          }
+        }
+
+        cf_new_range.push({ row: [CFr1, CFr2], column: [CFc1, CFc2] });
+      }
+
+      const cf = _.clone(CFarr[i]);
+      cf.cellrange = cf_new_range;
+
+      newCFarr.push(cf);
+    }
+  }
+
+  // 交替颜色配置变动
+  const AFarr = file.luckysheet_alternateformat_save;
+  const newAFarr = [];
+  if (AFarr != null && AFarr.length > 0) {
+    for (let i = 0; i < AFarr.length; i += 1) {
+      let AFr1 = AFarr[i].cellrange.row[0];
+      let AFr2 = AFarr[i].cellrange.row[1];
+      let AFc1 = AFarr[i].cellrange.column[0];
+      let AFc2 = AFarr[i].cellrange.column[1];
+
+      const af = _.clone(AFarr[i]);
+
+      if (type === "row") {
+        if (AFr1 < index) {
+          if (AFr2 === index && direction === "lefttop") {
+            AFr2 += count;
+          } else if (AFr2 > index) {
+            AFr2 += count;
+          }
+        } else if (AFr1 === index) {
+          if (direction === "lefttop") {
+            AFr1 += count;
+            AFr2 += count;
+          } else if (direction === "rightbottom" && AFr2 > index) {
+            AFr2 += count;
+          }
+        } else {
+          AFr1 += count;
+          AFr2 += count;
+        }
+      } else if (type === "column") {
+        if (AFc1 < index) {
+          if (AFc2 === index && direction === "lefttop") {
+            AFc2 += count;
+          } else if (AFc2 > index) {
+            AFc2 += count;
+          }
+        } else if (AFc1 === index) {
+          if (direction === "lefttop") {
+            AFc1 += count;
+            AFc2 += count;
+          } else if (direction === "rightbottom" && AFc2 > index) {
+            AFc2 += count;
+          }
+        } else {
+          AFc1 += count;
+          AFc2 += count;
+        }
+      }
+
+      af.cellrange = { row: [AFr1, AFr2], column: [AFc1, AFc2] };
+
+      newAFarr.push(af);
+    }
+  }
+
+  // 冻结配置变动
+  const { frozen } = file;
+  if (frozen) {
+    const normalizedIndex = direction === "lefttop" ? index - 1 : index;
+    if (
+      type === "row" &&
+      (frozen.type === "rangeRow" || frozen.type === "rangeBoth")
+    ) {
+      if ((frozen.range?.row_focus ?? -1) > normalizedIndex) {
+        frozen.range!.row_focus += count;
+      }
+    }
+    if (
+      type === "column" &&
+      (frozen.type === "rangeColumn" || frozen.type === "rangeBoth")
+    ) {
+      if ((frozen.range?.column_focus ?? -1) > normalizedIndex) {
+        frozen.range!.column_focus += count;
+      }
+    }
+  }
+
+  // 数据验证配置变动
+  const { dataVerification } = file;
+  const newDataVerification: any = {};
+  if (dataVerification != null) {
+    _.forEach(dataVerification, (v, key) => {
+      const r = Number(key.split("_")[0]);
+      const c = Number(key.split("_")[1]);
+      const item = dataVerification[key];
+
+      if (type === "row") {
+        if (index < r) {
+          newDataVerification[`${r + count}_${c}`] = item;
+        } else if (index === r) {
+          if (direction === "lefttop") {
+            newDataVerification[`${r + count}_${c}`] = item;
+
+            for (let i = 0; i < count; i += 1) {
+              newDataVerification[`${r + i}_${c}`] = item;
+            }
+          } else {
+            newDataVerification[`${r}_${c}`] = item;
+
+            for (let i = 0; i < count; i += 1) {
+              newDataVerification[`${r + i + 1}_${c}`] = item;
+            }
+          }
+        } else {
+          newDataVerification[`${r}_${c}`] = item;
+        }
+      } else if (type === "column") {
+        if (index < c) {
+          newDataVerification[`${r}_${c + count}`] = item;
+        } else if (index === c) {
+          if (direction === "lefttop") {
+            newDataVerification[`${r}_${c + count}`] = item;
+
+            for (let i = 0; i < count; i += 1) {
+              newDataVerification[`${r}_${c + i}`] = item;
+            }
+          } else {
+            newDataVerification[`${r}_${c}`] = item;
+
+            for (let i = 0; i < count; i += 1) {
+              newDataVerification[`${r}_${c + i + 1}`] = item;
+            }
+          }
+        } else {
+          newDataVerification[`${r}_${c}`] = item;
+        }
+      }
+    });
+  }
+
+  // 超链接配置变动
+  const { hyperlink } = file;
+  const newHyperlink: any = {};
+  if (hyperlink != null) {
+    _.forEach(hyperlink, (v, key) => {
+      const r = Number(key.split("_")[0]);
+      const c = Number(key.split("_")[1]);
+      const item = hyperlink[key];
+
+      if (type === "row") {
+        if (index < r) {
+          newHyperlink[`${r + count}_${c}`] = item;
+        } else if (index === r) {
+          if (direction === "lefttop") {
+            newHyperlink[`${r + count}_${c}`] = item;
+          } else {
+            newHyperlink[`${r}_${c}`] = item;
+          }
+        } else {
+          newHyperlink[`${r}_${c}`] = item;
+        }
+      } else if (type === "column") {
+        if (index < c) {
+          newHyperlink[`${r}_${c + count}`] = item;
+        } else if (index === c) {
+          if (direction === "lefttop") {
+            newHyperlink[`${r}_${c + count}`] = item;
+          } else {
+            newHyperlink[`${r}_${c}`] = item;
+          }
+        } else {
+          newHyperlink[`${r}_${c}`] = item;
+        }
+      }
+    });
+  }
+
+  let type1;
+  if (type === "row") {
+    type1 = "r";
+
+    // 行高配置变动
+    if (cfg.rowlen != null) {
+      const rowlen_new: any = {};
+      const rowReadOnly_new: Record<number, number> = {};
+
+      _.forEach(cfg.rowlen, (v, rstr) => {
+        const r = parseFloat(rstr);
+
+        if (r < index) {
+          rowlen_new[r] = cfg.rowlen![r];
+        } else if (r === index) {
+          if (direction === "lefttop") {
+            rowlen_new[r + count] = cfg.rowlen![r];
+          } else if (direction === "rightbottom") {
+            rowlen_new[r] = cfg.rowlen![r];
+          }
+        } else {
+          rowlen_new[r + count] = cfg.rowlen![r];
+        }
+      });
+      _.forEach(cfg.rowReadOnly, (v, rstr) => {
+        const r = parseFloat(rstr);
+        if (r < index) {
+          rowReadOnly_new[r] = cfg.rowReadOnly![r];
+        } else if (r > index) {
+          rowReadOnly_new[r + count] = cfg.rowReadOnly![r];
+        }
+      });
+
+      cfg.rowlen = rowlen_new;
+      cfg.rowReadOnly = rowReadOnly_new;
+    }
+
+    // 自定义行高配置变动
+    if (cfg.customHeight != null) {
+      const customHeight_new: any = {};
+
+      _.forEach(cfg.customHeight, (v, rstr) => {
+        const r = parseFloat(rstr);
+
+        if (r < index) {
+          customHeight_new[r] = cfg.customHeight![r];
+        } else if (r === index) {
+          if (direction === "lefttop") {
+            customHeight_new[r + count] = cfg.customHeight![r];
+          } else if (direction === "rightbottom") {
+            customHeight_new[r] = cfg.customHeight![r];
+          }
+        } else {
+          customHeight_new[r + count] = cfg.customHeight![r];
+        }
+      });
+
+      cfg.customHeight = customHeight_new;
+    }
+
+    // 自定义行高配置变动
+    if (cfg.customHeight != null) {
+      const customHeight_new: any = {};
+
+      _.forEach(cfg.customHeight, (v, rstr) => {
+        const r = parseFloat(rstr);
+
+        if (r < index) {
+          customHeight_new[r] = cfg.customHeight![r];
+        } else if (r === index) {
+          if (direction === "lefttop") {
+            customHeight_new[r + count] = cfg.customHeight![r];
+          } else if (direction === "rightbottom") {
+            customHeight_new[r] = cfg.customHeight![r];
+          }
+        } else {
+          customHeight_new[r + count] = cfg.customHeight![r];
+        }
+      });
+
+      cfg.customHeight = customHeight_new;
+    }
+
+    // 隐藏行配置变动
+    if (cfg.rowhidden != null) {
+      const rowhidden_new: any = {};
+
+      _.forEach(cfg.rowhidden, (v, rstr) => {
+        const r = parseFloat(rstr);
+
+        if (r < index) {
+          rowhidden_new[r] = cfg.rowhidden![r];
+        } else if (r === index) {
+          if (direction === "lefttop") {
+            rowhidden_new[r + count] = cfg.rowhidden![r];
+          } else if (direction === "rightbottom") {
+            rowhidden_new[r] = cfg.rowhidden![r];
+          }
+        } else {
+          rowhidden_new[r + count] = cfg.rowhidden![r];
+        }
+      });
+
+      cfg.rowhidden = rowhidden_new;
+    }
+
+    // 空行模板
+    const row = [];
+    const curRow = [...d][index];
+    for (let c = 0; c < d[0].length; c += 1) {
+      const cell = curRow[c];
+      let templateCell = null;
+      if (cell?.mc && (direction === "rightbottom" || index !== cell.mc.r)) {
+        if (cell.mc.rs) {
+          cell.mc.rs += count;
+        }
+        templateCell = { ...cell };
+        if (!d?.[index + 1]?.[c]?.mc) {
+          templateCell.mc = undefined;
+        }
+        delete templateCell.v;
+        delete templateCell.m;
+        delete templateCell.ps;
+        delete templateCell.f;
+      }
+      row.push(templateCell);
+    }
+    const cellBorderConfig = [];
+    // 边框
+    if (cfg.borderInfo && cfg.borderInfo.length > 0) {
+      const borderInfo = [];
+
+      for (let i = 0; i < cfg.borderInfo.length; i += 1) {
+        const { rangeType } = cfg.borderInfo[i];
+
+        if (rangeType === "range") {
+          const borderRange = cfg.borderInfo[i].range;
+
+          const emptyRange = [];
+
+          for (let j = 0; j < borderRange.length; j += 1) {
+            let bd_r1 = borderRange[j].row[0];
+            let bd_r2 = borderRange[j].row[1];
+
+            if (direction === "lefttop") {
+              if (index <= bd_r1) {
+                bd_r1 += count;
+                bd_r2 += count;
+              } else if (index <= bd_r2) {
+                bd_r2 += count;
+              }
+            } else {
+              if (index < bd_r1) {
+                bd_r1 += count;
+                bd_r2 += count;
+              } else if (index < bd_r2) {
+                bd_r2 += count;
+              }
+            }
+
+            if (bd_r2 >= bd_r1) {
+              emptyRange.push({
+                row: [bd_r1, bd_r2],
+                column: borderRange[j].column,
+              });
+            }
+          }
+
+          if (emptyRange.length > 0) {
+            const bd_obj = {
+              rangeType: "range",
+              borderType: cfg.borderInfo[i].borderType,
+              style: cfg.borderInfo[i].style,
+              color: cfg.borderInfo[i].color,
+              range: emptyRange,
+            };
+
+            borderInfo.push(bd_obj);
+          }
+        } else if (rangeType === "cell") {
+          let { row_index } = cfg.borderInfo[i].value;
+          // 位置相同标识边框相关 先缓存
+          if (row_index === index) {
+            cellBorderConfig.push(
+              JSON.parse(JSON.stringify(cfg.borderInfo[i]))
+            );
+          }
+
+          if (direction === "lefttop") {
+            if (index <= row_index) {
+              row_index += count;
+            }
+          } else {
+            if (index < row_index) {
+              row_index += count;
+            }
+          }
+
+          cfg.borderInfo[i].value.row_index = row_index;
+          borderInfo.push(cfg.borderInfo[i]);
+        }
+      }
+
+      cfg.borderInfo = borderInfo;
+    }
+
+    const arr = [];
+    for (let r = 0; r < count; r += 1) {
+      arr.push(JSON.stringify(row));
+      // 同步拷贝 type 为 cell 类型的边框
+      if (cellBorderConfig.length) {
+        const cellBorderConfigCopy = _.cloneDeep(cellBorderConfig);
+        cellBorderConfigCopy.forEach((item) => {
+          if (direction === "rightbottom") {
+            // 向下插入时 基于模板行位置直接递增即可
+            item.value.row_index += r + 1;
+          } else if (direction === "lefttop") {
+            // 向上插入时 目标行移动到后面 新增n行到前面 对于新增的行来说 也是递增，不过是从0开始
+            item.value.row_index += r;
+          }
+        });
+        cfg.borderInfo?.push(...cellBorderConfigCopy);
+      }
+    }
+
+    if (direction === "lefttop") {
+      if (index === 0) {
+        new Function("d", `return d.unshift(${arr.join(",")})`)(d);
+      } else {
+        new Function("d", `return d.splice(${index}, 0, ${arr.join(",")})`)(d);
+      }
+    } else {
+      new Function("d", `return d.splice(${index + 1}, 0, ${arr.join(",")})`)(
+        d
+      );
+    }
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    type1 = "c";
+
+    // 列宽配置变动
+    if (cfg.columnlen != null) {
+      const columnlen_new: any = {};
+      const columnReadOnly_new: any = {};
+
+      _.forEach(cfg.columnlen, (v, cstr) => {
+        const c = parseFloat(cstr);
+
+        if (c < index) {
+          columnlen_new[c] = cfg.columnlen![c];
+        } else if (c === index) {
+          if (direction === "lefttop") {
+            columnlen_new[c + count] = cfg.columnlen![c];
+          } else if (direction === "rightbottom") {
+            columnlen_new[c] = cfg.columnlen![c];
+          }
+        } else {
+          columnlen_new[c + count] = cfg.columnlen![c];
+        }
+      });
+
+      _.forEach(cfg.colReadOnly, (v, cstr) => {
+        const c = parseFloat(cstr);
+        if (c < index) {
+          columnReadOnly_new[c] = cfg.colReadOnly![c];
+        } else if (c > index) {
+          columnReadOnly_new[c + count] = cfg.colReadOnly![c];
+        }
+      });
+
+      cfg.columnlen = columnlen_new;
+      cfg.colReadOnly = columnReadOnly_new;
+    }
+
+    // 自定义列宽配置变动
+    if (cfg.customWidth != null) {
+      const customWidth_new: any = {};
+
+      _.forEach(cfg.customWidth, (v, cstr) => {
+        const c = parseFloat(cstr);
+
+        if (c < index) {
+          customWidth_new[c] = cfg.customWidth![c];
+        } else if (c === index) {
+          if (direction === "lefttop") {
+            customWidth_new[c + count] = cfg.customWidth![c];
+          } else if (direction === "rightbottom") {
+            customWidth_new[c] = cfg.customWidth![c];
+          }
+        } else {
+          customWidth_new[c + count] = cfg.customWidth![c];
+        }
+      });
+
+      cfg.customWidth = customWidth_new;
+    }
+
+    // 自定义列宽配置变动
+    if (cfg.customWidth != null) {
+      const customWidth_new: any = {};
+
+      _.forEach(cfg.customWidth, (v, cstr) => {
+        const c = parseFloat(cstr);
+
+        if (c < index) {
+          customWidth_new[c] = cfg.customWidth![c];
+        } else if (c === index) {
+          if (direction === "lefttop") {
+            customWidth_new[c + count] = cfg.customWidth![c];
+          } else if (direction === "rightbottom") {
+            customWidth_new[c] = cfg.customWidth![c];
+          }
+        } else {
+          customWidth_new[c + count] = cfg.customWidth![c];
+        }
+      });
+
+      cfg.customWidth = customWidth_new;
+    }
+
+    // 隐藏列配置变动
+    if (cfg.colhidden != null) {
+      const colhidden_new: any = {};
+
+      _.forEach(cfg.colhidden, (v, cstr) => {
+        const c = parseFloat(cstr);
+
+        if (c < index) {
+          colhidden_new[c] = cfg.colhidden![c];
+        } else if (c === index) {
+          if (direction === "lefttop") {
+            colhidden_new[c + count] = cfg.colhidden![c];
+          } else if (direction === "rightbottom") {
+            colhidden_new[c] = cfg.colhidden![c];
+          }
+        } else {
+          colhidden_new[c + count] = cfg.colhidden![c];
+        }
+      });
+
+      cfg.colhidden = colhidden_new;
+    }
+
+    // 空列模板
+    const col = [];
+    const curd = [...d];
+    for (let r = 0; r < d.length; r += 1) {
+      const cell = curd[r][index];
+      let templateCell = null;
+      if (cell?.mc && (direction === "rightbottom" || index !== cell.mc.c)) {
+        if (cell.mc.cs) {
+          cell.mc.cs += count;
+        }
+        templateCell = { ...cell };
+        if (!curd?.[r]?.[index + 1]?.mc) {
+          templateCell.mc = undefined;
+        }
+        delete templateCell.v;
+        delete templateCell.m;
+        delete templateCell.ps;
+        delete templateCell.f;
+      }
+      col.push(templateCell);
+    }
+    const cellBorderConfig = [];
+    // 边框
+    if (cfg.borderInfo && cfg.borderInfo.length > 0) {
+      const borderInfo = [];
+
+      for (let i = 0; i < cfg.borderInfo.length; i += 1) {
+        const { rangeType } = cfg.borderInfo[i];
+
+        if (rangeType === "range") {
+          const borderRange = cfg.borderInfo[i].range;
+
+          const emptyRange = [];
+
+          for (let j = 0; j < borderRange.length; j += 1) {
+            let bd_c1 = borderRange[j].column[0];
+            let bd_c2 = borderRange[j].column[1];
+
+            if (direction === "lefttop") {
+              if (index <= bd_c1) {
+                bd_c1 += count;
+                bd_c2 += count;
+              } else if (index <= bd_c2) {
+                bd_c2 += count;
+              }
+            } else {
+              if (index < bd_c1) {
+                bd_c1 += count;
+                bd_c2 += count;
+              } else if (index < bd_c2) {
+                bd_c2 += count;
+              }
+            }
+
+            if (bd_c2 >= bd_c1) {
+              emptyRange.push({
+                row: borderRange[j].row,
+                column: [bd_c1, bd_c2],
+              });
+            }
+          }
+
+          if (emptyRange.length > 0) {
+            const bd_obj = {
+              rangeType: "range",
+              borderType: cfg.borderInfo[i].borderType,
+              style: cfg.borderInfo[i].style,
+              color: cfg.borderInfo[i].color,
+              range: emptyRange,
+            };
+
+            borderInfo.push(bd_obj);
+          }
+        } else if (rangeType === "cell") {
+          let { col_index } = cfg.borderInfo[i].value;
+          // 位置相同标识边框相关 先缓存
+          if (col_index === index) {
+            cellBorderConfig.push(
+              JSON.parse(JSON.stringify(cfg.borderInfo[i]))
+            );
+          }
+
+          if (direction === "lefttop") {
+            if (index <= col_index) {
+              col_index += count;
+            }
+          } else {
+            if (index < col_index) {
+              col_index += count;
+            }
+          }
+
+          cfg.borderInfo[i].value.col_index = col_index;
+          borderInfo.push(cfg.borderInfo[i]);
+        }
+      }
+
+      cfg.borderInfo = borderInfo;
+    }
+
+    // 处理相关的 type 为 cell 类型的边框
+    if (cellBorderConfig.length) {
+      for (let i = 0; i < count; i += 1) {
+        const cellBorderConfigCopy = _.cloneDeep(cellBorderConfig);
+        cellBorderConfigCopy.forEach((item) => {
+          if (direction === "rightbottom") {
+            // 向右插入时 基于模板列位置直接递增即可
+            item.value.col_index += i + 1;
+          } else if (direction === "lefttop") {
+            // 向左插入时 目标列移动到后面 新增n列到前面 对于新增的列来说 也是递增，不过是从0开始
+            item.value.col_index += i;
+          }
+        });
+        cfg.borderInfo?.push(...cellBorderConfigCopy);
+      }
+    }
+
+    for (let r = 0; r < d.length; r += 1) {
+      const row = d[r];
+
+      for (let i = 0; i < count; i += 1) {
+        if (direction === "lefttop") {
+          if (index === 0) {
+            row.unshift(col[r]);
+          } else {
+            row.splice(index, 0, col[r]);
+          }
+        } else {
+          row.splice(index + 1, 0, col[r]);
+        }
+      }
+    }
+  }
+
+  // 修改当前sheet页时刷新
+  file.data = d;
+  file.config = cfg;
+
+  file.calcChain = newCalcChain;
+  if (newFilterObj != null) {
+    file.filter = newFilterObj.filter;
+    file.filter_select = newFilterObj.filter_select;
+  }
+  file.luckysheet_conditionformat_save = newCFarr;
+  file.luckysheet_alternateformat_save = newAFarr;
+  file.dataVerification = newDataVerification;
+  file.hyperlink = newHyperlink;
+  if (file.id === ctx.currentSheetId) {
+    ctx.config = cfg;
+    // jfrefreshgrid_adRC(
+    //   d,
+    //   cfg,
+    //   "addRC",
+    //   {
+    //     index,
+    //     len: value,
+    //     direction,
+    //     rc: type1,
+    //     restore: false,
+    //   },
+    //   newCalcChain,
+    //   newFilterObj,
+    //   newCFarr,
+    //   newAFarr,
+    //   newFreezen,
+    //   newDataVerification,
+    //   newHyperlink
+    // );
+  }
+
+  let range = null;
+  if (type === "row") {
+    if (direction === "lefttop") {
+      range = [
+        { row: [index, index + count - 1], column: [0, d[0].length - 1] },
+      ];
+    } else {
+      range = [
+        { row: [index + 1, index + count], column: [0, d[0].length - 1] },
+      ];
+    }
+    file.row = file.data.length;
+  } else {
+    if (direction === "lefttop") {
+      range = [{ row: [0, d.length - 1], column: [index, index + count - 1] }];
+    } else {
+      range = [{ row: [0, d.length - 1], column: [index + 1, index + count] }];
+    }
+    file.column = file.data[0]?.length;
+  }
+
+  if (changeSelection) {
+    file.luckysheet_select_save = range;
+    if (file.id === ctx.currentSheetId) {
+      ctx.luckysheet_select_save = range;
+      // selectHightlightShow();
+    }
+  }
+  if (enterType === "addRowMergeAndIndex" || enterType === "addRowMerge") {
+    const _range: Range = [];
+    _.forEach(merge_new, (mc) => {
+      const { r, c, rs } = mc;
+      if (rs === 2 && merge_old[`${r}_${c}`]?.rs === 1) {
+        _range.push({ row: [r, r + 1], column: [c, c] });
+      }
+    });
+    if (_range.length > 0) {
+      mergeCells(ctx, ctx.currentSheetId, _range, "merge-all");
+    }
+  }
+
+  // const flowdata = file.data;
+  // const _value = flowdata[index][currentCol];
+  // const values = _value?.v.split(".");
+  // console.log("flowdata", JSON.stringify(flowdata));
+
+  // if (values.length >= 1) {
+  //   const indexStr = Number(values[0]) + 1;
+
+  //   flowdata[index + 1][currentCol].v = `${indexStr}.`;
+  //   flowdata[index + 1][currentCol].m = `${indexStr}.`;
+  //   flowdata[index + 1][currentCol].ct = { fa: "General", t: "n" };
+  //   // file.data = flowdata;
+  // }
+
+  refreshLocalMergeData(merge_new, file);
+
+  setSelection(ctx, [{ row: [index + 1], column: [currentCol] }], {});
+  // addRowMergeAndIndex 模式,添加序号
+  if (enterType === "addRowMergeAndIndex") {
+    if (currentCol > 0) {
+      const data = file.data[index][currentCol - 1];
+      if (data?.mc) {
+        const r = Number(data.mc?.r);
+        const c = Number(data.mc?.c);
+        const mergeCell = file.data[r][c];
+        const rowCount = Number(mergeCell?.mc?.rs);
+
+        Array.from({ length: rowCount }, (_w, i) => i).forEach((i) => {
+          if (file.data) {
+            const rowIndex = r + i;
+            const cellObject = file.data[rowIndex][currentCol];
+            if (cellObject === null) {
+              setCellValue(ctx, rowIndex, currentCol, file.data, `${i + 1}.`);
+            } else {
+              let value = "";
+              if (cellObject.v) {
+                value = String(cellObject.v);
+              }
+              if (value.startsWith(`${i}.`)) {
+                value = value.replace(`${i}.`, `${i + 1}.`);
+              } else if (!value.startsWith(`${i + 1}.`)) {
+                value = `${i + 1}.${value}`;
+              }
+              setCellValue(ctx, rowIndex, currentCol, file.data, value);
+            }
+          }
+        });
+      }
+    } else {
+      const rowCount: number = ctx.luckysheetfile[0]?.row ?? 0;
+      Array.from({ length: rowCount - 1 }, (_w, i) => i + 1).forEach((i) => {
+        if (file.data) {
+          const cellObject = file.data[i][0];
+          if (cellObject === null) {
+            setCellValue(ctx, i, 0, file.data, `${i}.`);
+          } else {
+            let value = String(cellObject.v);
+            if (value.startsWith(`${i - 1}.`)) {
+              value = value.replace(`${i - 1}.`, `${i}.`);
+            } else if (!value.startsWith(`${i}.`)) {
+              value = `${i}.${value}`;
+            }
+            setCellValue(ctx, i, 0, file.data, value);
+          }
+        }
+      });
+    }
+  }
+  // addRowAndIndex 模式，首行添加序号
+  else if (enterType === "addRowAndIndex") {
+    const rowCount: number = ctx.luckysheetfile[0]?.row ?? 0;
+
+    Array.from({ length: rowCount - 1 }, (_w, i) => i + 1).forEach((i) => {
+      if (file.data) {
+        const cellObject = file.data[i][0];
+        if (cellObject === null) {
+          setCellValue(ctx, i, 0, file.data, `${i}.`);
+        } else {
+          let value = String(cellObject.v);
+          if (value.startsWith(`${i - 1}.`)) {
+            value = value.replace(`${i - 1}.`, `${i}.`);
+          } else if (!value.startsWith(`${i}.`)) {
+            value = `${i}.${value}`;
+          }
+          setCellValue(ctx, i, 0, file.data, value);
+        }
+      }
+    });
+  }
+
+  // 添加边框
+  const borderInfo = formatBorderInfo(file.row ?? 1, file.column ?? 1);
+  file.config.borderInfo = borderInfo;
+  // if (type === "row") {
+  //   const scrollLeft = $("#luckysheet-cell-main").scrollLeft();
+  //   const scrollTop = $("#luckysheet-cell-main").scrollTop();
+  //   const winH = $("#luckysheet-cell-main").height();
+  //   const winW = $("#luckysheet-cell-main").width();
+
+  //   const row = ctx.visibledatarow[range[0].row[1]];
+  //   const row_pre =
+  //     range[0].row[0] - 1 === -1 ? 0 : ctx.visibledatarow[range[0].row[0] - 1];
+
+  //   if (row - scrollTop - winH + 20 > 0) {
+  //     $("#luckysheet-scrollbar-y").scrollTop(row - winH + 20);
+  //   } else if (row_pre - scrollTop - 20 < 0) {
+  //     $("#luckysheet-scrollbar-y").scrollTop(row_pre - 20);
+  //   }
+
+  //   if (value > 30) {
+  //     $("#luckysheet-row-count-show").hide();
+  //   }
+  // }
+}
 export function deleteRowCol(
   ctx: Context,
   op: {
