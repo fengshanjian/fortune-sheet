@@ -1156,7 +1156,10 @@ export function insertRowCol(
   refreshLocalMergeData(merge_new, file);
 
   if (ctx.luckysheetfile[0]?.excelType === "PHA") {
-    const borderInfo = formatBorderInfo(file.row ?? 1, file.column ?? 1);
+    const borderInfo = formatBorderInfo(
+      file.data.length ?? 1,
+      file.data[0].length ?? 1
+    );
     file.config.borderInfo = borderInfo;
   }
 
@@ -2331,6 +2334,9 @@ export function insertRowColForCustom(
     }
     file.column = file.data[0]?.length;
   }
+  if (ctx.luckysheetfile[0]?.excelType === "PHA") {
+    range = [{ row: [index + 1, 0], column: [currentCol, 0] }];
+  }
 
   if (changeSelection) {
     file.luckysheet_select_save = range;
@@ -2368,9 +2374,12 @@ export function insertRowColForCustom(
 
   refreshLocalMergeData(merge_new, file);
 
-  setSelection(ctx, [{ row: [index + 1], column: [currentCol] }], {});
   // addRowMergeAndIndex 模式,添加序号
-  if (enterType === "addRowMergeAndIndex") {
+  const exclueCols = ctx.luckysheetfile[0]?.enterIndexExcludeCols;
+  if (
+    enterType === "addRowMergeAndIndex" &&
+    !_.includes(exclueCols, currentCol)
+  ) {
     if (currentCol > 0) {
       const data = file.data[index][currentCol - 1];
       if (data?.mc) {
@@ -2443,8 +2452,13 @@ export function insertRowColForCustom(
   }
 
   // 添加边框
-  const borderInfo = formatBorderInfo(file.row ?? 1, file.column ?? 1);
+
+  const borderInfo = formatBorderInfo(
+    file.data.length ?? 1,
+    file.data[0].length ?? 1
+  );
   file.config.borderInfo = borderInfo;
+
   // if (type === "row") {
   //   const scrollLeft = $("#luckysheet-cell-main").scrollLeft();
   //   const scrollTop = $("#luckysheet-cell-main").scrollTop();
