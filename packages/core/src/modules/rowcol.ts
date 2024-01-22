@@ -1228,7 +1228,6 @@ export function insertRowForEnterKey(
   if (type === "row" && d.length + count >= 10000) {
     throw new Error("maxExceeded");
   }
-
   count = Math.floor(count);
 
   // 合并单元格配置变动
@@ -1273,7 +1272,7 @@ export function insertRowForEnterKey(
       : cfg.merge,
     (mc) => {
       const { r, c, rs, cs } = mc;
-      if (type === "row") {
+      if (c < currentCol) {
         if (index < r) {
           merge_new[`${r + count}_${c}`] = { r: r + count, c, rs, cs };
         } else if (index === r) {
@@ -1285,9 +1284,16 @@ export function insertRowForEnterKey(
         } else {
           merge_new[`${r}_${c}`] = { r, c, rs, cs };
         }
+      } else {
+        if (index < r) {
+          merge_new[`${r + count}_${c}`] = { r: r + count, c, rs, cs };
+        } else {
+          merge_new[`${r}_${c}`] = { r, c, rs, cs };
+        }
       }
     }
   );
+
   cfg.merge = merge_new;
 
   // 公式配置变动
@@ -1584,10 +1590,7 @@ export function insertRowForEnterKey(
     });
   }
 
-  let type1;
   if (type === "row") {
-    type1 = "r";
-
     // 行高配置变动
     if (cfg.rowlen != null) {
       const rowlen_new: any = {};
@@ -1692,16 +1695,26 @@ export function insertRowForEnterKey(
 
     // 空行模板
     const row = [];
-    const curRow = [...d][index];
+    const currentCell = d[index][currentCol];
+    let currentBottomIndex = index;
+    if (currentCell?.mc?.rs) {
+      currentBottomIndex = index + currentCell.mc.rs - 1;
+    }
+    const curRow = [...d][currentBottomIndex];
+
     for (let c = 0; c < d[0].length; c += 1) {
       const cell = curRow[c];
       let templateCell = null;
-      if (cell?.mc && (direction === "rightbottom" || index !== cell.mc.r)) {
+      if (
+        cell?.mc &&
+        (direction === "rightbottom" || currentBottomIndex !== cell.mc.r)
+      ) {
         if (cell.mc.rs) {
           cell.mc.rs += count;
         }
+
         templateCell = { ...cell };
-        if (!d?.[index + 1]?.[c]?.mc) {
+        if (!d?.[currentBottomIndex + 1]?.[c]?.mc) {
           templateCell.mc = undefined;
         }
         delete templateCell.v;
@@ -1711,6 +1724,7 @@ export function insertRowForEnterKey(
       }
       row.push(templateCell);
     }
+
     const cellBorderConfig = [];
     // 边框
     if (cfg.borderInfo && cfg.borderInfo.length > 0) {
@@ -1809,256 +1823,10 @@ export function insertRowForEnterKey(
       }
     }
 
-    if (direction === "lefttop") {
-      if (index === 0) {
-        new Function("d", `return d.unshift(${arr.join(",")})`)(d);
-      } else {
-        new Function("d", `return d.splice(${index}, 0, ${arr.join(",")})`)(d);
-      }
-    } else {
-      new Function("d", `return d.splice(${index + 1}, 0, ${arr.join(",")})`)(
-        d
-      );
-    }
-  } else {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    type1 = "c";
-
-    // 列宽配置变动
-    if (cfg.columnlen != null) {
-      const columnlen_new: any = {};
-      const columnReadOnly_new: any = {};
-
-      _.forEach(cfg.columnlen, (v, cstr) => {
-        const c = parseFloat(cstr);
-
-        if (c < index) {
-          columnlen_new[c] = cfg.columnlen![c];
-        } else if (c === index) {
-          if (direction === "lefttop") {
-            columnlen_new[c + count] = cfg.columnlen![c];
-          } else if (direction === "rightbottom") {
-            columnlen_new[c] = cfg.columnlen![c];
-          }
-        } else {
-          columnlen_new[c + count] = cfg.columnlen![c];
-        }
-      });
-
-      _.forEach(cfg.colReadOnly, (v, cstr) => {
-        const c = parseFloat(cstr);
-        if (c < index) {
-          columnReadOnly_new[c] = cfg.colReadOnly![c];
-        } else if (c > index) {
-          columnReadOnly_new[c + count] = cfg.colReadOnly![c];
-        }
-      });
-
-      cfg.columnlen = columnlen_new;
-      cfg.colReadOnly = columnReadOnly_new;
-    }
-
-    // 自定义列宽配置变动
-    if (cfg.customWidth != null) {
-      const customWidth_new: any = {};
-
-      _.forEach(cfg.customWidth, (v, cstr) => {
-        const c = parseFloat(cstr);
-
-        if (c < index) {
-          customWidth_new[c] = cfg.customWidth![c];
-        } else if (c === index) {
-          if (direction === "lefttop") {
-            customWidth_new[c + count] = cfg.customWidth![c];
-          } else if (direction === "rightbottom") {
-            customWidth_new[c] = cfg.customWidth![c];
-          }
-        } else {
-          customWidth_new[c + count] = cfg.customWidth![c];
-        }
-      });
-
-      cfg.customWidth = customWidth_new;
-    }
-
-    // 自定义列宽配置变动
-    if (cfg.customWidth != null) {
-      const customWidth_new: any = {};
-
-      _.forEach(cfg.customWidth, (v, cstr) => {
-        const c = parseFloat(cstr);
-
-        if (c < index) {
-          customWidth_new[c] = cfg.customWidth![c];
-        } else if (c === index) {
-          if (direction === "lefttop") {
-            customWidth_new[c + count] = cfg.customWidth![c];
-          } else if (direction === "rightbottom") {
-            customWidth_new[c] = cfg.customWidth![c];
-          }
-        } else {
-          customWidth_new[c + count] = cfg.customWidth![c];
-        }
-      });
-
-      cfg.customWidth = customWidth_new;
-    }
-
-    // 隐藏列配置变动
-    if (cfg.colhidden != null) {
-      const colhidden_new: any = {};
-
-      _.forEach(cfg.colhidden, (v, cstr) => {
-        const c = parseFloat(cstr);
-
-        if (c < index) {
-          colhidden_new[c] = cfg.colhidden![c];
-        } else if (c === index) {
-          if (direction === "lefttop") {
-            colhidden_new[c + count] = cfg.colhidden![c];
-          } else if (direction === "rightbottom") {
-            colhidden_new[c] = cfg.colhidden![c];
-          }
-        } else {
-          colhidden_new[c + count] = cfg.colhidden![c];
-        }
-      });
-
-      cfg.colhidden = colhidden_new;
-    }
-
-    // 空列模板
-    const col = [];
-    const curd = [...d];
-    for (let r = 0; r < d.length; r += 1) {
-      const cell = curd[r][index];
-      let templateCell = null;
-      if (cell?.mc && (direction === "rightbottom" || index !== cell.mc.c)) {
-        if (cell.mc.cs) {
-          cell.mc.cs += count;
-        }
-        templateCell = { ...cell };
-        if (!curd?.[r]?.[index + 1]?.mc) {
-          templateCell.mc = undefined;
-        }
-        delete templateCell.v;
-        delete templateCell.m;
-        delete templateCell.ps;
-        delete templateCell.f;
-      }
-      col.push(templateCell);
-    }
-    const cellBorderConfig = [];
-    // 边框
-    if (cfg.borderInfo && cfg.borderInfo.length > 0) {
-      const borderInfo = [];
-
-      for (let i = 0; i < cfg.borderInfo.length; i += 1) {
-        const { rangeType } = cfg.borderInfo[i];
-
-        if (rangeType === "range") {
-          const borderRange = cfg.borderInfo[i].range;
-
-          const emptyRange = [];
-
-          for (let j = 0; j < borderRange.length; j += 1) {
-            let bd_c1 = borderRange[j].column[0];
-            let bd_c2 = borderRange[j].column[1];
-
-            if (direction === "lefttop") {
-              if (index <= bd_c1) {
-                bd_c1 += count;
-                bd_c2 += count;
-              } else if (index <= bd_c2) {
-                bd_c2 += count;
-              }
-            } else {
-              if (index < bd_c1) {
-                bd_c1 += count;
-                bd_c2 += count;
-              } else if (index < bd_c2) {
-                bd_c2 += count;
-              }
-            }
-
-            if (bd_c2 >= bd_c1) {
-              emptyRange.push({
-                row: borderRange[j].row,
-                column: [bd_c1, bd_c2],
-              });
-            }
-          }
-
-          if (emptyRange.length > 0) {
-            const bd_obj = {
-              rangeType: "range",
-              borderType: cfg.borderInfo[i].borderType,
-              style: cfg.borderInfo[i].style,
-              color: cfg.borderInfo[i].color,
-              range: emptyRange,
-            };
-
-            borderInfo.push(bd_obj);
-          }
-        } else if (rangeType === "cell") {
-          let { col_index } = cfg.borderInfo[i].value;
-          // 位置相同标识边框相关 先缓存
-          if (col_index === index) {
-            cellBorderConfig.push(
-              JSON.parse(JSON.stringify(cfg.borderInfo[i]))
-            );
-          }
-
-          if (direction === "lefttop") {
-            if (index <= col_index) {
-              col_index += count;
-            }
-          } else {
-            if (index < col_index) {
-              col_index += count;
-            }
-          }
-
-          cfg.borderInfo[i].value.col_index = col_index;
-          borderInfo.push(cfg.borderInfo[i]);
-        }
-      }
-
-      cfg.borderInfo = borderInfo;
-    }
-
-    // 处理相关的 type 为 cell 类型的边框
-    if (cellBorderConfig.length) {
-      for (let i = 0; i < count; i += 1) {
-        const cellBorderConfigCopy = _.cloneDeep(cellBorderConfig);
-        cellBorderConfigCopy.forEach((item) => {
-          if (direction === "rightbottom") {
-            // 向右插入时 基于模板列位置直接递增即可
-            item.value.col_index += i + 1;
-          } else if (direction === "lefttop") {
-            // 向左插入时 目标列移动到后面 新增n列到前面 对于新增的列来说 也是递增，不过是从0开始
-            item.value.col_index += i;
-          }
-        });
-        cfg.borderInfo?.push(...cellBorderConfigCopy);
-      }
-    }
-
-    for (let r = 0; r < d.length; r += 1) {
-      const row = d[r];
-
-      for (let i = 0; i < count; i += 1) {
-        if (direction === "lefttop") {
-          if (index === 0) {
-            row.unshift(col[r]);
-          } else {
-            row.splice(index, 0, col[r]);
-          }
-        } else {
-          row.splice(index + 1, 0, col[r]);
-        }
-      }
-    }
+    new Function(
+      "d",
+      `return d.splice(${currentBottomIndex + 1}, 0, ${arr.join(",")})`
+    )(d);
   }
 
   // 修改当前sheet页时刷新
@@ -2106,16 +1874,21 @@ export function insertRowForEnterKey(
     file.column = file.data[0]?.length;
   }
   if (ctx.luckysheetfile[curOrder]?.excelType === "PHA") {
-    range = [{ row: [index + 1, 0], column: [currentCol, 0] }];
+    const currentCell = d[index][currentCol];
+    let currentBottomIndex = index;
+    if (currentCell?.mc?.rs) {
+      currentBottomIndex = index + currentCell.mc.rs - 1;
+    }
+    range = [{ row: [currentBottomIndex + 1, 0], column: [currentCol, 0] }];
   }
 
   if (changeSelection) {
     file.luckysheet_select_save = range;
     if (file.id === ctx.currentSheetId) {
       ctx.luckysheet_select_save = range;
-      // selectHightlightShow();
     }
   }
+
   if (enterType === "addRowMergeAndIndex" || enterType === "addRowMerge") {
     const _range: Range = [];
     _.forEach(merge_new, (mc) => {
@@ -2154,7 +1927,7 @@ export function insertRowForEnterKey(
             if (cellObject === null) {
               setCellValue(ctx, i, currentCol, file.data, `1.`);
             } else {
-              let value = String(cellObject.v);
+              let value = String(cellObject.v ?? "");
               if (isEmpty(value)) {
                 value = `1.`;
               } else if (!value.startsWith(`1.`)) {
@@ -2170,8 +1943,8 @@ export function insertRowForEnterKey(
             if (cellObject === null) {
               setCellValue(ctx, i, currentCol, file.data, `${preIndex + 1}.`);
             } else {
-              let value = String(cellObject.v);
-              if (isEmpty(value)) {
+              let value = String(cellObject.v ?? "");
+              if (isEmpty(value) || value === undefined) {
                 value = `${preIndex + 1}.`;
               } else if (
                 !value.startsWith(`${preIndex + 1}.`) &&
@@ -2201,7 +1974,7 @@ export function insertRowForEnterKey(
             if (cellObject === null) {
               setCellValue(ctx, i, 0, file.data, `1.`);
             } else {
-              let value = String(cellObject.v);
+              let value = String(cellObject.v ?? "");
               if (isEmpty(value)) {
                 value = `1.`;
               } else if (!value.startsWith(`1.`)) {
@@ -2217,7 +1990,7 @@ export function insertRowForEnterKey(
             if (cellObject === null) {
               setCellValue(ctx, i, 0, file.data, `${preIndex + 1}.`);
             } else {
-              let value = String(cellObject.v);
+              let value = String(cellObject.v ?? "");
               if (isEmpty(value)) {
                 value = `${preIndex + 1}.`;
               } else if (
