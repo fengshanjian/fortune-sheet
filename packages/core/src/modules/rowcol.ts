@@ -1,11 +1,10 @@
-import _ from "lodash";
+import _, { isEmpty } from "lodash";
 import { Context } from "../context";
 import { Sheet, Range } from "../types";
 import { getSheetIndex, formatBorderInfo } from "../utils";
 import { getcellFormula, setCellValue } from "./cell";
 import { functionStrChange } from "./formula";
 import { mergeCells } from "./merge";
-import { setSelection } from "../api/range";
 
 const refreshLocalMergeData = (merge_new: Record<string, any>, file: Sheet) => {
   Object.entries(merge_new).forEach(([, v]) => {
@@ -1155,7 +1154,7 @@ export function insertRowCol(
 
   refreshLocalMergeData(merge_new, file);
 
-  if (ctx.luckysheetfile[0]?.excelType === "PHA") {
+  if (ctx.luckysheetfile[curOrder]?.excelType === "PHA") {
     const borderInfo = formatBorderInfo(
       file.data.length ?? 1,
       file.data[0].length ?? 1
@@ -1211,6 +1210,7 @@ export function insertRowForEnterKey(
   id = id || ctx.currentSheetId;
 
   const curOrder = getSheetIndex(ctx, id);
+
   if (curOrder == null) return;
 
   const file = ctx.luckysheetfile[curOrder];
@@ -1243,6 +1243,7 @@ export function insertRowForEnterKey(
     const { r, c, rs, cs } = mc;
     merge_old[`${r}_${c}`] = { r, c, rs, cs };
   });
+
   if (currentCol > 0) {
     // eslint-disable-next-line no-plusplus
     for (let i = 0; i < currentCol; i++) {
@@ -1276,24 +1277,11 @@ export function insertRowForEnterKey(
         if (index < r) {
           merge_new[`${r + count}_${c}`] = { r: r + count, c, rs, cs };
         } else if (index === r) {
-          if (direction === "lefttop") {
-            merge_new[`${r + count}_${c}`] = {
-              r: r + count,
-              c,
-              rs,
-              cs,
-            };
-          } else {
-            merge_new[`${r}_${c}`] = { r, c, rs: rs + count, cs };
-          }
+          merge_new[`${r}_${c}`] = { r, c, rs: rs + count, cs };
         } else if (index < r + rs - 1) {
           merge_new[`${r}_${c}`] = { r, c, rs: rs + count, cs };
         } else if (index === r + rs - 1) {
-          if (direction === "lefttop") {
-            merge_new[`${r}_${c}`] = { r, c, rs: rs + count, cs };
-          } else {
-            merge_new[`${r}_${c}`] = { r, c, rs: rs + count, cs };
-          }
+          merge_new[`${r}_${c}`] = { r, c, rs: rs + count, cs };
         } else {
           merge_new[`${r}_${c}`] = { r, c, rs, cs };
         }
@@ -2077,6 +2065,13 @@ export function insertRowForEnterKey(
   file.data = d;
   file.config = cfg;
 
+  // 添加边框
+  const borderInfo = formatBorderInfo(
+    file.data.length ?? 1,
+    file.data[0].length ?? 1
+  );
+  file.config.borderInfo = borderInfo;
+
   file.calcChain = newCalcChain;
   if (newFilterObj != null) {
     file.filter = newFilterObj.filter;
@@ -2110,7 +2105,7 @@ export function insertRowForEnterKey(
     }
     file.column = file.data[0]?.length;
   }
-  if (ctx.luckysheetfile[0]?.excelType === "PHA") {
+  if (ctx.luckysheetfile[curOrder]?.excelType === "PHA") {
     range = [{ row: [index + 1, 0], column: [currentCol, 0] }];
   }
 
@@ -2137,7 +2132,7 @@ export function insertRowForEnterKey(
   refreshLocalMergeData(merge_new, file);
 
   // addRowMergeAndIndex 模式,添加序号
-  const exclueCols = ctx.luckysheetfile[0]?.enterIndexExcludeCols;
+  const exclueCols = file?.enterIndexExcludeCols;
   if (
     enterType === "addRowMergeAndIndex" &&
     !_.includes(exclueCols, currentCol)
@@ -2150,50 +2145,101 @@ export function insertRowForEnterKey(
         const mergeCell = file.data[r][c];
         const rowCount = Number(mergeCell?.mc?.rs);
 
-        Array.from({ length: rowCount }, (_w, i) => i).forEach((i) => {
-          if (file.data) {
-            const rowIndex = r + i;
-            const cellObject = file.data[rowIndex][currentCol];
+        let preIndex = 0;
+        // eslint-disable-next-line no-plusplus
+        for (let i = r; i < r + rowCount; i++) {
+          const cellObject = file.data[i][currentCol];
+          if (i === r) {
+            // 第二行，i=1时（首行默认不进行任何操作）
             if (cellObject === null) {
-              setCellValue(ctx, rowIndex, currentCol, file.data, `${i + 1}.`);
+              setCellValue(ctx, i, currentCol, file.data, `1.`);
             } else {
-              let value = "";
-              if (cellObject.v) {
-                value = String(cellObject.v);
+              let value = String(cellObject.v);
+              if (isEmpty(value)) {
+                value = `1.`;
+              } else if (!value.startsWith(`1.`)) {
+                value = `1.${value}`;
               }
-              if (value.startsWith(`${i}.`)) {
-                value = value.replace(`${i}.`, `${i + 1}.`);
-              } else if (!value.startsWith(`${i + 1}.`)) {
-                value = `${i + 1}.${value}`;
+              setCellValue(ctx, i, currentCol, file.data, value);
+              if (cellObject.mc?.rs) {
+                i = i + Number(cellObject.mc?.rs) - 1;
               }
-              setCellValue(ctx, rowIndex, currentCol, file.data, value);
             }
-          }
-        });
-      }
-    } else {
-      const rowCount: number = ctx.luckysheetfile[0]?.row ?? 0;
-      Array.from({ length: rowCount - 1 }, (_w, i) => i + 1).forEach((i) => {
-        if (file.data) {
-          const cellObject = file.data[i][0];
-          if (cellObject === null) {
-            setCellValue(ctx, i, 0, file.data, `${i}.`);
+            preIndex = 1;
           } else {
-            let value = String(cellObject.v);
-            if (value.startsWith(`${i - 1}.`)) {
-              value = value.replace(`${i - 1}.`, `${i}.`);
-            } else if (!value.startsWith(`${i}.`)) {
-              value = `${i}.${value}`;
+            if (cellObject === null) {
+              setCellValue(ctx, i, currentCol, file.data, `${preIndex + 1}.`);
+            } else {
+              let value = String(cellObject.v);
+              if (isEmpty(value)) {
+                value = `${preIndex + 1}.`;
+              } else if (
+                !value.startsWith(`${preIndex + 1}.`) &&
+                value.startsWith(`${preIndex}.`)
+              ) {
+                value = value.replace(`${preIndex}.`, `${preIndex + 1}.`);
+              }
+              setCellValue(ctx, i, currentCol, file.data, value);
+              if (cellObject.mc?.rs) {
+                i = i + Number(cellObject.mc?.rs) - 1;
+              }
             }
-            setCellValue(ctx, i, 0, file.data, value);
+            preIndex += 1;
           }
         }
-      });
+      }
+    } else {
+      const rowCount: number = file.data?.length ?? 0;
+
+      if (file.data) {
+        let preIndex = 0;
+        // eslint-disable-next-line no-plusplus
+        for (let i = 1; i < rowCount; i++) {
+          const cellObject = file.data[i][0];
+          if (i === 1) {
+            // 第二行，i=1时（首行默认不进行任何操作）
+            if (cellObject === null) {
+              setCellValue(ctx, i, 0, file.data, `1.`);
+            } else {
+              let value = String(cellObject.v);
+              if (isEmpty(value)) {
+                value = `1.`;
+              } else if (!value.startsWith(`1.`)) {
+                value = `1.${value}`;
+              }
+              setCellValue(ctx, i, 0, file.data, value);
+              if (cellObject.mc?.rs) {
+                i = i + Number(cellObject.mc?.rs) - 1;
+              }
+            }
+            preIndex = 1;
+          } else {
+            if (cellObject === null) {
+              setCellValue(ctx, i, 0, file.data, `${preIndex + 1}.`);
+            } else {
+              let value = String(cellObject.v);
+              if (isEmpty(value)) {
+                value = `${preIndex + 1}.`;
+              } else if (
+                !value.startsWith(`${preIndex + 1}.`) &&
+                value.startsWith(`${preIndex}.`)
+              ) {
+                value = value.replace(`${preIndex}.`, `${preIndex + 1}.`);
+              }
+              setCellValue(ctx, i, 0, file.data, value);
+              if (cellObject.mc?.rs) {
+                i = i + Number(cellObject.mc?.rs) - 1;
+              }
+            }
+            preIndex += 1;
+          }
+        }
+      }
     }
   }
   // addRowAndIndex 模式，首行添加序号
   else if (enterType === "addRowAndIndex") {
-    const rowCount: number = ctx.luckysheetfile[0]?.row ?? 0;
+    const rowCount: number = file.data?.length ?? 0;
 
     Array.from({ length: rowCount - 1 }, (_w, i) => i + 1).forEach((i) => {
       if (file.data) {
@@ -2212,13 +2258,6 @@ export function insertRowForEnterKey(
       }
     });
   }
-
-  // 添加边框
-  const borderInfo = formatBorderInfo(
-    file.data.length ?? 1,
-    file.data[0].length ?? 1
-  );
-  file.config.borderInfo = borderInfo;
 }
 
 export function deleteRowCol(
