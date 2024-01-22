@@ -1185,7 +1185,7 @@ export function insertRowCol(
   // }
 }
 /**
- * 增加行列
+ * 回车加行
  * @param {string} type 行或列 ['row', 'column'] 之一
  * @param {number} index 插入的位置 index
  * @param {number} count 插入 多少 行（列）
@@ -1193,7 +1193,7 @@ export function insertRowCol(
  * @param {string | number} id 操作的 sheet 的 id
  * @returns
  */
-export function insertRowColForCustom(
+export function insertRowForEnterKey(
   ctx: Context,
   op: {
     type: "row" | "column";

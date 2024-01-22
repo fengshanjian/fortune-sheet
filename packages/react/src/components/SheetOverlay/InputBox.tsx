@@ -16,7 +16,7 @@ import {
   israngeseleciton,
   escapeHTMLTag,
   isAllowEdit,
-  insertRowColForCustom,
+  insertRowForEnterKey,
 } from "@fortune-sheet/core";
 import React, {
   useContext,
@@ -198,7 +198,7 @@ const InputBox: React.FC = () => {
                 return;
               }
               try {
-                insertRowColForCustom(
+                insertRowForEnterKey(
                   draftCtx,
                   insertRowColOp,
                   col,
