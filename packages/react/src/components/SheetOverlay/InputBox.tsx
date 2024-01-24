@@ -17,6 +17,7 @@ import {
   escapeHTMLTag,
   isAllowEdit,
   insertRowForEnterKey,
+  insertRowForEnterSpecialCols,
 } from "@fortune-sheet/core";
 import React, {
   useContext,
@@ -198,12 +199,26 @@ const InputBox: React.FC = () => {
                 return;
               }
               try {
-                insertRowForEnterKey(
-                  draftCtx,
-                  insertRowColOp,
-                  col,
-                  draftCtx.luckysheetfile[0].enterType
-                );
+                const enterSpecialCol =
+                  draftCtx.luckysheetfile[0].enterSpecialCol ?? 0;
+                if (
+                  enterSpecialCol > 0 &&
+                  (enterSpecialCol === col || enterSpecialCol === col + 1)
+                ) {
+                  insertRowForEnterSpecialCols(
+                    draftCtx,
+                    insertRowColOp,
+                    col,
+                    draftCtx.luckysheetfile[0].enterType
+                  );
+                } else {
+                  insertRowForEnterKey(
+                    draftCtx,
+                    insertRowColOp,
+                    col,
+                    draftCtx.luckysheetfile[0].enterType
+                  );
+                }
                 draftCtx.contextMenu = {};
               } catch (err: any) {
                 draftCtx.contextMenu = {};

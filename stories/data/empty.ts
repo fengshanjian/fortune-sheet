@@ -6,8 +6,9 @@ const data = {
   row: 5,
   excelType: "PHA",
   enterType: "addRowMergeAndIndex",
-  enterExcludeCols: [2],
+  //  enterExcludeCols: [2],
   enterIndexExcludeCols: [3],
+  enterSpecialCol: 1,
 };
 
 export default data;

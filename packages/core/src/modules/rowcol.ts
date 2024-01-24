@@ -1275,11 +1275,7 @@ export function insertRowForEnterKey(
       if (c < currentCol) {
         if (index < r) {
           merge_new[`${r + count}_${c}`] = { r: r + count, c, rs, cs };
-        } else if (index === r) {
-          merge_new[`${r}_${c}`] = { r, c, rs: rs + count, cs };
-        } else if (index < r + rs - 1) {
-          merge_new[`${r}_${c}`] = { r, c, rs: rs + count, cs };
-        } else if (index === r + rs - 1) {
+        } else if (index >= r && index <= r + rs - 1) {
           merge_new[`${r}_${c}`] = { r, c, rs: rs + count, cs };
         } else {
           merge_new[`${r}_${c}`] = { r, c, rs, cs };
@@ -1724,103 +1720,9 @@ export function insertRowForEnterKey(
       }
       row.push(templateCell);
     }
-
-    const cellBorderConfig = [];
-    // 边框
-    if (cfg.borderInfo && cfg.borderInfo.length > 0) {
-      const borderInfo = [];
-
-      for (let i = 0; i < cfg.borderInfo.length; i += 1) {
-        const { rangeType } = cfg.borderInfo[i];
-
-        if (rangeType === "range") {
-          const borderRange = cfg.borderInfo[i].range;
-
-          const emptyRange = [];
-
-          for (let j = 0; j < borderRange.length; j += 1) {
-            let bd_r1 = borderRange[j].row[0];
-            let bd_r2 = borderRange[j].row[1];
-
-            if (direction === "lefttop") {
-              if (index <= bd_r1) {
-                bd_r1 += count;
-                bd_r2 += count;
-              } else if (index <= bd_r2) {
-                bd_r2 += count;
-              }
-            } else {
-              if (index < bd_r1) {
-                bd_r1 += count;
-                bd_r2 += count;
-              } else if (index < bd_r2) {
-                bd_r2 += count;
-              }
-            }
-
-            if (bd_r2 >= bd_r1) {
-              emptyRange.push({
-                row: [bd_r1, bd_r2],
-                column: borderRange[j].column,
-              });
-            }
-          }
-
-          if (emptyRange.length > 0) {
-            const bd_obj = {
-              rangeType: "range",
-              borderType: cfg.borderInfo[i].borderType,
-              style: cfg.borderInfo[i].style,
-              color: cfg.borderInfo[i].color,
-              range: emptyRange,
-            };
-
-            borderInfo.push(bd_obj);
-          }
-        } else if (rangeType === "cell") {
-          let { row_index } = cfg.borderInfo[i].value;
-          // 位置相同标识边框相关 先缓存
-          if (row_index === index) {
-            cellBorderConfig.push(
-              JSON.parse(JSON.stringify(cfg.borderInfo[i]))
-            );
-          }
-
-          if (direction === "lefttop") {
-            if (index <= row_index) {
-              row_index += count;
-            }
-          } else {
-            if (index < row_index) {
-              row_index += count;
-            }
-          }
-
-          cfg.borderInfo[i].value.row_index = row_index;
-          borderInfo.push(cfg.borderInfo[i]);
-        }
-      }
-
-      cfg.borderInfo = borderInfo;
-    }
-
     const arr = [];
     for (let r = 0; r < count; r += 1) {
       arr.push(JSON.stringify(row));
-      // 同步拷贝 type 为 cell 类型的边框
-      if (cellBorderConfig.length) {
-        const cellBorderConfigCopy = _.cloneDeep(cellBorderConfig);
-        cellBorderConfigCopy.forEach((item) => {
-          if (direction === "rightbottom") {
-            // 向下插入时 基于模板行位置直接递增即可
-            item.value.row_index += r + 1;
-          } else if (direction === "lefttop") {
-            // 向上插入时 目标行移动到后面 新增n行到前面 对于新增的行来说 也是递增，不过是从0开始
-            item.value.row_index += r;
-          }
-        });
-        cfg.borderInfo?.push(...cellBorderConfigCopy);
-      }
     }
 
     new Function(
@@ -2031,6 +1933,723 @@ export function insertRowForEnterKey(
       }
     });
   }
+}
+/**
+ * 回车加行
+ * @param {string} type 行或列 ['row', 'column'] 之一
+ * @param {number} index 插入的位置 index
+ * @param {number} count 插入 多少 行（列）
+ * @param {string} direction 哪个方向插入 ['lefttop','rightbottom'] 之一
+ * @param {string | number} id 操作的 sheet 的 id
+ * @returns
+ */
+export function insertRowForEnterSpecialCols(
+  ctx: Context,
+  op: {
+    type: "row" | "column";
+    index: number;
+    count: number;
+    direction: "lefttop" | "rightbottom";
+    id: string;
+  },
+  currentCol: number = 0,
+  enterType: string = "normal",
+  changeSelection: boolean = true
+) {
+  let { count, id } = op;
+  const { type, index, direction } = op;
+  id = id || ctx.currentSheetId;
+
+  const curOrder = getSheetIndex(ctx, id);
+
+  if (curOrder == null) return;
+
+  const file = ctx.luckysheetfile[curOrder];
+  if (!file) return;
+
+  const d = file.data;
+  if (!d) return;
+
+  const cfg = file.config || {};
+
+  if (cfg.rowReadOnly?.[index]) {
+    throw new Error("readOnly");
+  }
+
+  if (type === "row" && d.length + count >= 10000) {
+    throw new Error("maxExceeded");
+  }
+
+  if (currentCol === 0) {
+    throw new Error("invalid Column Index");
+  }
+
+  if (file.enterSpecialCol === undefined || file.enterSpecialCol === 0) {
+    throw new Error("enterSpecialCol is invalid");
+  }
+
+  count = Math.floor(count);
+
+  // 合并单元格配置变动
+  if (cfg.merge == null) {
+    cfg.merge = {};
+  }
+
+  const specialCol1 = file.enterSpecialCol;
+  const specialCol2 = specialCol1 + 1;
+
+  // 计算前向单元格合并数
+  let _preCellMergeCount = 1;
+  let _preCellBeginRow = 0;
+  const preCellData = d[index][specialCol1 - 1];
+  if (preCellData && preCellData.mc) {
+    _preCellBeginRow = preCellData.mc.r;
+    if (preCellData.mc?.rs) {
+      _preCellMergeCount = Number(preCellData.mc?.rs);
+    } else {
+      const cell = d[preCellData.mc.r][preCellData.mc.c];
+      if (cell && cell.mc && cell.mc.rs) {
+        _preCellMergeCount = Number(cell.mc.rs);
+      } else {
+        console.error("invalidData");
+        throw new Error("invalidData");
+      }
+    }
+  } else {
+    _preCellMergeCount = 1;
+    _preCellBeginRow = index;
+  }
+
+  const preCellMergeCount = _preCellMergeCount; // 前向单元格合并数
+  const preCellBeginRow = _preCellBeginRow; // 基于前向合并单元格的，起始行
+
+  // 计算后向列的行数
+  let _specialCol1RowsCount = 0;
+  let _specialCol2RowsCount = 0;
+  let _special1LastCell: any | null = null;
+  let _special2LastCell: any | null = null;
+
+  for (let i = 0; i < preCellMergeCount; i += 1) {
+    const cell = d[preCellBeginRow + i][specialCol1];
+    _specialCol1RowsCount += 1;
+    if (cell?.mc?.rs) {
+      _special1LastCell = cell;
+      i = i + Number(cell.mc.rs) - 1;
+    }
+  }
+  for (let i = 0; i < preCellMergeCount; i += 1) {
+    const cell = d[preCellBeginRow + i][specialCol2];
+    _specialCol2RowsCount += 1;
+    if (cell?.mc?.rs) {
+      _special2LastCell = cell;
+      i = i + Number(cell.mc.rs) - 1;
+    }
+  }
+
+  const specialCol1RowsCount = _specialCol1RowsCount; //  基于前向合并单元格的，specialCol1列的行数
+  const specialCol2RowsCount = _specialCol2RowsCount; //  基于前向合并单元格的，specialCol2列的行数
+  const special1LastCell = JSON.parse(JSON.stringify(_special1LastCell)); // 基于前向合并单元格的，specialCol1列的最后一行
+  const special2LastCell = JSON.parse(JSON.stringify(_special2LastCell)); // 基于前向合并单元格的，specialCol2列的最后一行
+  let needAddRow = true;
+
+  const merge_new: any = {};
+  const merge_old: any = {};
+  _.forEach(cfg.merge, (mc) => {
+    const { r, c, rs, cs } = mc;
+    merge_old[`${r}_${c}`] = { r, c, rs, cs };
+  });
+
+  // specialCol1 回车加行
+  if (currentCol === specialCol1) {
+    // specialCol1 无合并，则新增行
+    if (specialCol1RowsCount === preCellMergeCount) {
+      for (let i = 0; i < specialCol1; i += 1) {
+        let add = true;
+        _.forEach(merge_old, (mc) => {
+          const { r, c, rs } = mc;
+          if (c === i) {
+            if (index >= r && index < r + rs) {
+              add = false;
+            }
+          }
+        });
+        if (add) {
+          // eslint-disable-next-line no-plusplus
+          for (let j = i; j < specialCol1; j++) {
+            merge_old[`${index}_${j}`] = { r: index, c: j, rs: 1, cs: 1 };
+          }
+          break;
+        }
+      }
+      // 需要添加合并
+      if (special2LastCell === null) {
+        for (let i = specialCol2; i < d[index].length; i += 1) {
+          merge_old[`${preCellBeginRow + preCellMergeCount - 1}_${i}`] = {
+            r: preCellBeginRow + preCellMergeCount - 1,
+            c: i,
+            rs: 1,
+            cs: 1,
+          };
+        }
+      }
+    } else {
+      // 不新增行，specialCol1需要解除部分行合并
+      if (special1LastCell.mc) {
+        needAddRow = false;
+      } else {
+        console.error("special1LastCell.mc is null");
+        throw new Error("special1LastCell.mc is null");
+      }
+    }
+  } else if (currentCol === specialCol2) {
+    // specialCol2 回车加行
+    // specialCol2 无合并，则新增行
+    if (specialCol2RowsCount === preCellMergeCount) {
+      for (let i = 0; i < specialCol1; i += 1) {
+        let add = true;
+        _.forEach(merge_old, (mc) => {
+          const { r, c, rs } = mc;
+          if (c === i) {
+            if (index >= r && index < r + rs) {
+              add = false;
+            }
+          }
+        });
+        if (add) {
+          // eslint-disable-next-line no-plusplus
+          for (let j = i; j < specialCol1; j += 1) {
+            merge_old[`${index}_${j}`] = { r: index, c: j, rs: 1, cs: 1 };
+          }
+          break;
+        }
+      }
+      // 需要添加合并
+      if (special1LastCell === null) {
+        merge_old[`${preCellBeginRow + preCellMergeCount - 1}_${specialCol1}`] =
+          {
+            r: preCellBeginRow + preCellMergeCount - 1,
+            c: specialCol1,
+            rs: 1,
+            cs: 1,
+          };
+      }
+    } else {
+      // 不新增行，specialCol1需要解除部分行合并
+      if (special2LastCell.mc) {
+        needAddRow = false;
+      } else {
+        console.error("special2LastCell.mc is null");
+        throw new Error("special2LastCell.mc is null");
+      }
+    }
+  } else {
+    console.error("currentCol is not specialCol1 or specialCol2");
+    throw new Error("currentCol is not specialCol1 or specialCol2");
+  }
+
+  _.forEach(merge_old, (mc) => {
+    const { r, c, rs, cs } = mc;
+    if (needAddRow) {
+      if (c < specialCol1) {
+        if (index < r) {
+          // 下方表格
+          merge_new[`${r + count}_${c}`] = { r: r + count, c, rs, cs };
+        } else if (index >= r && index <= r + rs - 1) {
+          merge_new[`${r}_${c}`] = { r, c, rs: rs + count, cs };
+        } else {
+          // 上方表格 index>=r+rs
+          merge_new[`${r}_${c}`] = { r, c, rs, cs };
+        }
+      } else {
+        if (r >= preCellBeginRow + preCellMergeCount) {
+          // 下方表格
+          merge_new[`${r + count}_${c}`] = { r: r + count, c, rs, cs };
+        } else if (
+          r >= preCellBeginRow &&
+          r < preCellBeginRow + preCellMergeCount
+        ) {
+          merge_new[`${r}_${c}`] = { r, c, rs: rs + 1, cs };
+        } else {
+          // 上方表格
+          merge_new[`${r}_${c}`] = { r, c, rs, cs };
+        }
+      }
+    } else {
+      if (currentCol === specialCol1) {
+        if (c === specialCol1) {
+          if (r >= preCellBeginRow && r < preCellBeginRow + preCellMergeCount) {
+            const _r = special1LastCell.mc.r;
+            if (_r === r) {
+              if (rs > 2) {
+                merge_new[`${r + 1}_${c}`] = { r: r + 1, c, rs: rs - 1, cs };
+              }
+              // 如果rs=2，则merge_new不添加元素
+            } else {
+              console.error("合并单元格不是最后一行");
+              throw new Error("合并单元格不是最后一行");
+            }
+          } else {
+            merge_new[`${r}_${c}`] = { r, c, rs, cs };
+          }
+        } else {
+          merge_new[`${r}_${c}`] = { r, c, rs, cs };
+        }
+      } else if (currentCol === specialCol2) {
+        if (c >= specialCol2) {
+          if (r >= preCellBeginRow && r < preCellBeginRow + preCellMergeCount) {
+            const _r = special2LastCell.mc.r;
+            if (_r === r) {
+              if (rs > 2) {
+                merge_new[`${r + 1}_${c}`] = { r: r + 1, c, rs: rs - 1, cs };
+              }
+              // 如果rs=2，则merge_new不添加元素
+            } else {
+              console.error("合并单元格不是最后一行");
+              throw new Error("合并单元格不是最后一行");
+            }
+          } else {
+            merge_new[`${r}_${c}`] = { r, c, rs, cs };
+          }
+        } else {
+          merge_new[`${r}_${c}`] = { r, c, rs, cs };
+        }
+      } else {
+        console.error("currentCol is not specialCol1 or specialCol2");
+        throw new Error("currentCol is not specialCol1 or specialCol2");
+      }
+    }
+  });
+  cfg.merge = merge_new;
+
+  console.log("merge_new", merge_new);
+
+  if (needAddRow) {
+    /** ***********************处理区间2************************ */
+    // 行高配置变动
+    if (cfg.rowlen != null) {
+      const rowlen_new: any = {};
+      const rowReadOnly_new: Record<number, number> = {};
+
+      _.forEach(cfg.rowlen, (v, rstr) => {
+        const r = parseFloat(rstr);
+
+        if (r < index) {
+          rowlen_new[r] = cfg.rowlen![r];
+        } else if (r === index) {
+          if (direction === "lefttop") {
+            rowlen_new[r + count] = cfg.rowlen![r];
+          } else if (direction === "rightbottom") {
+            rowlen_new[r] = cfg.rowlen![r];
+          }
+        } else {
+          rowlen_new[r + count] = cfg.rowlen![r];
+        }
+      });
+      _.forEach(cfg.rowReadOnly, (v, rstr) => {
+        const r = parseFloat(rstr);
+        if (r < index) {
+          rowReadOnly_new[r] = cfg.rowReadOnly![r];
+        } else if (r > index) {
+          rowReadOnly_new[r + count] = cfg.rowReadOnly![r];
+        }
+      });
+
+      cfg.rowlen = rowlen_new;
+      cfg.rowReadOnly = rowReadOnly_new;
+    }
+
+    // 自定义行高配置变动
+    if (cfg.customHeight != null) {
+      const customHeight_new: any = {};
+
+      _.forEach(cfg.customHeight, (v, rstr) => {
+        const r = parseFloat(rstr);
+
+        if (r < index) {
+          customHeight_new[r] = cfg.customHeight![r];
+        } else if (r === index) {
+          if (direction === "lefttop") {
+            customHeight_new[r + count] = cfg.customHeight![r];
+          } else if (direction === "rightbottom") {
+            customHeight_new[r] = cfg.customHeight![r];
+          }
+        } else {
+          customHeight_new[r + count] = cfg.customHeight![r];
+        }
+      });
+
+      cfg.customHeight = customHeight_new;
+    }
+
+    // 自定义行高配置变动
+    if (cfg.customHeight != null) {
+      const customHeight_new: any = {};
+
+      _.forEach(cfg.customHeight, (v, rstr) => {
+        const r = parseFloat(rstr);
+
+        if (r < index) {
+          customHeight_new[r] = cfg.customHeight![r];
+        } else if (r === index) {
+          if (direction === "lefttop") {
+            customHeight_new[r + count] = cfg.customHeight![r];
+          } else if (direction === "rightbottom") {
+            customHeight_new[r] = cfg.customHeight![r];
+          }
+        } else {
+          customHeight_new[r + count] = cfg.customHeight![r];
+        }
+      });
+
+      cfg.customHeight = customHeight_new;
+    }
+    /** ***********************处理区间2************************ */
+    // 空行模板
+    const row = [];
+    const currentCell = d[index][currentCol];
+    let currentBottomIndex = index;
+    if (currentCell?.mc?.rs) {
+      currentBottomIndex = index + currentCell.mc.rs - 1;
+    }
+    const curRow = [...d][currentBottomIndex];
+
+    for (let c = 0; c < d[0].length; c += 1) {
+      const cell = curRow[c];
+      let templateCell = null;
+      if (
+        cell?.mc &&
+        (direction === "rightbottom" || currentBottomIndex !== cell.mc.r)
+      ) {
+        if (cell.mc.rs) {
+          cell.mc.rs += count;
+        }
+
+        templateCell = { ...cell };
+        if (!d?.[currentBottomIndex + 1]?.[c]?.mc) {
+          templateCell.mc = undefined;
+        }
+        delete templateCell.v;
+        delete templateCell.m;
+        delete templateCell.ps;
+        delete templateCell.f;
+      }
+      row.push(templateCell);
+    }
+
+    const arr = [];
+    for (let r = 0; r < count; r += 1) {
+      arr.push(JSON.stringify(row));
+    }
+    new Function(
+      "d",
+      `return d.splice(${currentBottomIndex + 1}, 0, ${arr.join(",")})`
+    )(d);
+  } else {
+    if (currentCol === specialCol1) {
+      if (special1LastCell && special1LastCell.mc) {
+        const preValue: Record<string, any> = {};
+        for (
+          let i = preCellBeginRow;
+          i < preCellBeginRow + preCellMergeCount;
+          i += 1
+        ) {
+          preValue[`${i}_${currentCol}`] =
+            d[i][currentCol] === null
+              ? null
+              : JSON.parse(JSON.stringify(d[i][currentCol]));
+        }
+        d[index + 1][currentCol] = null;
+        for (
+          let i = preCellBeginRow + preCellMergeCount - 1;
+          i > index + 1;
+          i -= 1
+        ) {
+          d[i][currentCol] = preValue[`${i - 1}_${currentCol}`];
+        }
+
+        const { r, rs } = special1LastCell.mc;
+        for (let i = r; i < r + rs; i += 1) {
+          d[i][currentCol] = d[i][currentCol] !== null ? d[i][currentCol] : {};
+          if (rs > 2) {
+            if (i === r) {
+              delete d[i][currentCol]?.mc;
+            } else if (i === r + 1) {
+              d[i][currentCol] = {
+                ...d[i][currentCol],
+                mc: { r: r + 1, c: currentCol, rs: rs - 1, cs: 1 },
+              };
+            } else {
+              d[i][currentCol] = {
+                ...d[i][currentCol],
+                mc: { r: r + 1, c: currentCol },
+              };
+            }
+          } else {
+            delete d[i][currentCol]?.mc;
+          }
+          if (Object.keys(d[i][currentCol] ?? {}).length === 0) {
+            d[i][currentCol] = null;
+          }
+        }
+      } else {
+        throw new Error("special1LastCell is null");
+      }
+    } else {
+      if (special2LastCell && special2LastCell.mc) {
+        const preValue: Record<string, any> = {};
+        for (
+          let i = preCellBeginRow;
+          i < preCellBeginRow + preCellMergeCount;
+          i += 1
+        ) {
+          for (let j = currentCol; j < d[index].length; j += 1) {
+            preValue[`${i}_${j}`] =
+              d[i][j] === null ? null : JSON.parse(JSON.stringify(d[i][j]));
+          }
+        }
+        for (let j = currentCol; j < d[index].length; j += 1) {
+          d[index + 1][j] = null;
+        }
+        for (
+          let i = preCellBeginRow + preCellMergeCount - 1;
+          i > index + 1;
+          i -= 1
+        ) {
+          for (let j = currentCol; j < d[index].length; j += 1) {
+            d[i][j] = preValue[`${i - 1}_${j}`];
+          }
+        }
+
+        const { r, rs } = special2LastCell.mc;
+        for (let i = r; i < r + rs; i += 1) {
+          for (let j = currentCol; j < d[index].length; j += 1) {
+            d[i][j] = d[i][j] !== null ? d[i][j] : {};
+            if (rs > 2) {
+              if (i === r) {
+                delete d[i][j]?.mc;
+              } else if (i === r + 1) {
+                d[i][j] = {
+                  ...d[i][j],
+                  mc: { r: r + 1, c: j, rs: rs - 1, cs: 1 },
+                };
+              } else {
+                d[i][j] = {
+                  ...d[i][j],
+                  mc: { r: r + 1, c: j },
+                };
+              }
+            } else {
+              delete d[i][j]?.mc;
+            }
+            if (Object.keys(d[i][j] ?? {}).length === 0) {
+              d[i][j] = null;
+            }
+          }
+        }
+      } else {
+        throw new Error("special2LastCell is null");
+      }
+    }
+  }
+  console.log(JSON.stringify(d));
+
+  // 修改当前sheet页时刷新
+  file.data = d;
+  file.config = cfg;
+
+  // 添加边框
+  const borderInfo = formatBorderInfo(
+    file.data.length ?? 1,
+    file.data[0].length ?? 1
+  );
+  file.config.borderInfo = borderInfo;
+
+  if (file.id === ctx.currentSheetId) {
+    ctx.config = cfg;
+  }
+
+  let range = null;
+  if (type === "row") {
+    if (direction === "lefttop") {
+      range = [
+        { row: [index, index + count - 1], column: [0, d[0].length - 1] },
+      ];
+    } else {
+      range = [
+        { row: [index + 1, index + count], column: [0, d[0].length - 1] },
+      ];
+    }
+    file.row = file.data.length;
+  } else {
+    if (direction === "lefttop") {
+      range = [{ row: [0, d.length - 1], column: [index, index + count - 1] }];
+    } else {
+      range = [{ row: [0, d.length - 1], column: [index + 1, index + count] }];
+    }
+    file.column = file.data[0]?.length;
+  }
+  /** ***********************处理区间4************************ */
+  if (ctx.luckysheetfile[curOrder]?.excelType === "PHA") {
+    const currentCell = d[index][currentCol];
+    let currentBottomIndex = index;
+    if (currentCell?.mc?.rs) {
+      currentBottomIndex = index + currentCell.mc.rs - 1;
+    }
+    range = [{ row: [currentBottomIndex + 1, 0], column: [currentCol, 0] }];
+  }
+
+  if (changeSelection) {
+    file.luckysheet_select_save = range;
+    if (file.id === ctx.currentSheetId) {
+      ctx.luckysheet_select_save = range;
+    }
+  }
+
+  /** ***********************处理区间4************************ */
+  /** ***********************处理区间5************************ */
+  if (enterType === "addRowMergeAndIndex" || enterType === "addRowMerge") {
+    const _range: Range = [];
+    _.forEach(merge_new, (mc) => {
+      const { r, c, rs } = mc;
+      if (rs === 2 && merge_old[`${r}_${c}`]?.rs === 1) {
+        _range.push({ row: [r, r + 1], column: [c, c] });
+      }
+    });
+    if (_range.length > 0) {
+      mergeCells(ctx, ctx.currentSheetId, _range, "merge-all");
+    }
+  }
+
+  refreshLocalMergeData(merge_new, file);
+
+  // addRowMergeAndIndex 模式,添加序号
+  const exclueCols = file?.enterIndexExcludeCols;
+  if (
+    enterType === "addRowMergeAndIndex" &&
+    !_.includes(exclueCols, currentCol)
+  ) {
+    if (currentCol > 0) {
+      const data = file.data[index][currentCol - 1];
+      if (data?.mc) {
+        const r = Number(data.mc?.r);
+        const c = Number(data.mc?.c);
+        const mergeCell = file.data[r][c];
+        const rowCount = Number(mergeCell?.mc?.rs);
+
+        let preIndex = 0;
+        // eslint-disable-next-line no-plusplus
+        for (let i = r; i < r + rowCount; i++) {
+          const cellObject = file.data[i][currentCol];
+          if (i === r) {
+            // 第二行，i=1时（首行默认不进行任何操作）
+            if (cellObject === null) {
+              setCellValue(ctx, i, currentCol, file.data, `1.`);
+            } else {
+              let value = String(cellObject.v ?? "");
+              if (isEmpty(value)) {
+                value = `1.`;
+              } else if (!value.startsWith(`1.`)) {
+                value = `1.${value}`;
+              }
+              setCellValue(ctx, i, currentCol, file.data, value);
+              if (cellObject.mc?.rs) {
+                i = i + Number(cellObject.mc?.rs) - 1;
+              }
+            }
+            preIndex = 1;
+          } else {
+            if (cellObject === null) {
+              setCellValue(ctx, i, currentCol, file.data, `${preIndex + 1}.`);
+            } else {
+              let value = String(cellObject.v ?? "");
+              if (isEmpty(value) || value === undefined) {
+                value = `${preIndex + 1}.`;
+              } else if (
+                !value.startsWith(`${preIndex + 1}.`) &&
+                value.startsWith(`${preIndex}.`)
+              ) {
+                value = value.replace(`${preIndex}.`, `${preIndex + 1}.`);
+              }
+              setCellValue(ctx, i, currentCol, file.data, value);
+              if (cellObject.mc?.rs) {
+                i = i + Number(cellObject.mc?.rs) - 1;
+              }
+            }
+            preIndex += 1;
+          }
+        }
+      }
+    } else {
+      const rowCount: number = file.data?.length ?? 0;
+
+      if (file.data) {
+        let preIndex = 0;
+        // eslint-disable-next-line no-plusplus
+        for (let i = 1; i < rowCount; i++) {
+          const cellObject = file.data[i][0];
+          if (i === 1) {
+            // 第二行，i=1时（首行默认不进行任何操作）
+            if (cellObject === null) {
+              setCellValue(ctx, i, 0, file.data, `1.`);
+            } else {
+              let value = String(cellObject.v ?? "");
+              if (isEmpty(value)) {
+                value = `1.`;
+              } else if (!value.startsWith(`1.`)) {
+                value = `1.${value}`;
+              }
+              setCellValue(ctx, i, 0, file.data, value);
+              if (cellObject.mc?.rs) {
+                i = i + Number(cellObject.mc?.rs) - 1;
+              }
+            }
+            preIndex = 1;
+          } else {
+            if (cellObject === null) {
+              setCellValue(ctx, i, 0, file.data, `${preIndex + 1}.`);
+            } else {
+              let value = String(cellObject.v ?? "");
+              if (isEmpty(value)) {
+                value = `${preIndex + 1}.`;
+              } else if (
+                !value.startsWith(`${preIndex + 1}.`) &&
+                value.startsWith(`${preIndex}.`)
+              ) {
+                value = value.replace(`${preIndex}.`, `${preIndex + 1}.`);
+              }
+              setCellValue(ctx, i, 0, file.data, value);
+              if (cellObject.mc?.rs) {
+                i = i + Number(cellObject.mc?.rs) - 1;
+              }
+            }
+            preIndex += 1;
+          }
+        }
+      }
+    }
+  }
+  // addRowAndIndex 模式，首行添加序号
+  else if (enterType === "addRowAndIndex") {
+    const rowCount: number = file.data?.length ?? 0;
+
+    Array.from({ length: rowCount - 1 }, (_w, i) => i + 1).forEach((i) => {
+      if (file.data) {
+        const cellObject = file.data[i][0];
+        if (cellObject === null) {
+          setCellValue(ctx, i, 0, file.data, `${i}.`);
+        } else {
+          let value = String(cellObject.v);
+          if (value.startsWith(`${i - 1}.`)) {
+            value = value.replace(`${i - 1}.`, `${i}.`);
+          } else if (!value.startsWith(`${i}.`)) {
+            value = `${i}.${value}`;
+          }
+          setCellValue(ctx, i, 0, file.data, value);
+        }
+      }
+    });
+  }
+  /** ***********************处理区间5************************ */
 }
 
 export function deleteRowCol(
