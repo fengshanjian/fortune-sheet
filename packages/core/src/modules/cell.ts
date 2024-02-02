@@ -211,9 +211,9 @@ export function setCellValue(
     vupdateStr.toUpperCase() === "TRUE" &&
     (_.isNil(cell.ct?.fa) || cell.ct?.fa !== "@")
   ) {
-    cell.m = "TRUE";
-    cell.ct = { fa: "General", t: "b" };
-    cell.v = true;
+    cell.m = "";
+    cell.ct = { fa: "General", t: "g" };
+    cell.v = "";
   } else if (
     vupdateStr.toUpperCase() === "FALSE" &&
     (_.isNil(cell.ct?.fa) || cell.ct?.fa !== "@")

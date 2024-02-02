@@ -29,6 +29,7 @@ import React, {
   useState,
 } from "react";
 import _ from "lodash";
+import { getSheet } from "packages/core/src/api";
 import WorkbookContext, { SetContextOptions } from "../../context";
 import ContentEditable from "./ContentEditable";
 import FormulaSearch from "./FormulaSearch";
@@ -136,6 +137,21 @@ const InputBox: React.FC = () => {
 
   // 当选中行列是处于隐藏状态的话则不允许编辑
   useEffect(() => {
+    // const data = context.luckysheetfile[data]
+    const sheetData = getSheet(context, { id: context.currentSheetId });
+    const { luckysheet_select_save } = context;
+    if (luckysheet_select_save && luckysheet_select_save?.length > 0) {
+      const _r = luckysheet_select_save[0].row_focus;
+      const _c = luckysheet_select_save[0].column_focus;
+      if (
+        sheetData.dataVerification &&
+        sheetData.dataVerification[`${_r}_${_c}`]
+      ) {
+        setContext((ctx) => {
+          ctx.dataVerificationDropDownList = true;
+        });
+      }
+    }
     setIsHidenRC(isShowHidenCR(context));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [context.luckysheet_select_save]);

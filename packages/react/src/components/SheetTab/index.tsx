@@ -44,7 +44,7 @@ const SheetTab: React.FC = () => {
   useEffect(() => {
     const tabCurrent = tabContainerRef.current;
     if (!tabCurrent) return;
-    setIsShowScrollBtn(tabCurrent!.scrollWidth - 2 > tabCurrent!.clientWidth);
+    setIsShowScrollBtn(false);
   }, [context.luckysheetfile]);
 
   const onAddSheetClick = useCallback(
@@ -65,7 +65,7 @@ const SheetTab: React.FC = () => {
           { addSheetOp: true }
         );
         const tabCurrent = tabContainerRef.current;
-        setIsShowScrollBtn(tabCurrent!.scrollWidth > tabCurrent!.clientWidth);
+        setIsShowScrollBtn(false);
       }),
     [refs.cellInput, setContext, settings]
   );
@@ -118,11 +118,11 @@ const SheetTab: React.FC = () => {
             id="fortune-sheettab-container-c"
             ref={tabContainerRef}
           >
-            {_.sortBy(context.luckysheetfile, (s) => Number(s.order)).map(
+            {/* {_.sortBy(context.luckysheetfile, (s) => Number(s.order)).map(
               (sheet) => {
                 return <SheetItem key={sheet.id} sheet={sheet} />;
               }
-            )}
+            )} */}
             {/* <SheetItem
               isDropPlaceholder
               sheet={{ name: "", id: "drop-placeholder" }}

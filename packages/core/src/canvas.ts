@@ -210,7 +210,7 @@ export class Canvas {
       }
 
       if (this.sheetCtx.config?.rowhidden?.[r] == null) {
-        renderCtx.fillStyle = "#ffffff";
+        renderCtx.fillStyle = "#f5f5f5";
         renderCtx.fillRect(
           0,
           start_r + offsetTop + firstOffset,
@@ -229,7 +229,7 @@ export class Canvas {
         const verticalAlignPos = start_r + (end_r - start_r) / 2 + offsetTop;
 
         renderCtx.fillText(
-          `${r + 1}`,
+          this.sheetCtx.luckysheetfile[0].rowHeaderEmpty ? `` : `${r + 1}`,
           horizonAlignPos / this.sheetCtx.zoomRatio,
           verticalAlignPos / this.sheetCtx.zoomRatio
         );
@@ -401,7 +401,7 @@ export class Canvas {
       }
 
       if (this.sheetCtx.config?.colhidden?.[c] == null) {
-        renderCtx.fillStyle = "#ffffff";
+        renderCtx.fillStyle = "#f5f5f5";
         renderCtx.fillRect(
           start_c + offsetLeft - 1,
           0,
@@ -424,7 +424,7 @@ export class Canvas {
         );
 
         renderCtx.fillText(
-          abc,
+          this.sheetCtx.luckysheetfile[0].columnHeaderEmpty ? "" : abc,
           horizonAlignPos / this.sheetCtx.zoomRatio,
           verticalAlignPos / this.sheetCtx.zoomRatio
         );

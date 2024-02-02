@@ -23,7 +23,9 @@ const SheetList: React.FC = () => {
     >
       {_.sortBy(context.luckysheetfile, (s) => Number(s.order)).map(
         (singleSheet) => {
-          return <SheetListItem sheet={singleSheet} key={singleSheet.id} />;
+          return singleSheet.hide === 1 ? null : (
+            <SheetListItem key={singleSheet.id} sheet={singleSheet} />
+          );
         }
       )}
     </div>

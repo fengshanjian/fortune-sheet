@@ -124,6 +124,8 @@ export type Sheet = {
   enterExcludeCols?: number[]; // addRowMerge或addRowMergeAndIndex时，排除的列
   enterIndexExcludeCols?: number[]; // addRowMergeAndIndex时，排除的不添加index的列
   enterSpecialCol?: number; // addRowMergeAndIndex时，特殊处理的列
+  columnHeaderEmpty?: boolean;
+  rowHeaderEmpty?: boolean;
   name: string;
   config?: SheetConfig;
   order?: number;

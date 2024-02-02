@@ -58,6 +58,7 @@ export type WorkbookInstance = ReturnType<typeof generateAPIs>;
 type AdditionalProps = {
   onChange?: (data: SheetType[]) => void;
   onOp?: (op: Op[]) => void;
+  preHandler?: (data: SheetType[], patches: Patch[]) => void;
 };
 
 const triggerGroupValuesRefresh = (ctx: Context) => {
@@ -74,8 +75,9 @@ const concatProducer = (...producers: ((ctx: Context) => void)[]) => {
   };
 };
 
+let newPatches: Patch[] = [];
 const Workbook = React.forwardRef<WorkbookInstance, Settings & AdditionalProps>(
-  ({ onChange, onOp, data: originalData, ...props }, ref) => {
+  ({ onChange, onOp, preHandler, data: originalData, ...props }, ref) => {
     const globalCache = useRef<GlobalCache>({ undoList: [], redoList: [] });
     const cellInput = useRef<HTMLDivElement>(null);
     const fxInput = useRef<HTMLDivElement>(null);
@@ -255,20 +257,44 @@ const Workbook = React.forwardRef<WorkbookInstance, Settings & AdditionalProps>(
       }
       return cellData;
     }
+    const addtionProducer = useCallback(
+      (ctx: Context) => {
+        if (preHandler) {
+          preHandler(ctx.luckysheetfile, newPatches);
+        }
+      },
+      [preHandler]
+    );
 
     const setContextWithProduce = useCallback(
       (recipe: (ctx: Context) => void, options: SetContextOptions = {}) => {
         setContext((ctx_) => {
-          const [result, patches, inversePatches] = produceWithPatches(
+          let result = ctx_;
+          const [newCtx, patches, inversePatches] = produceWithPatches(
             ctx_,
             concatProducer(recipe, triggerGroupValuesRefresh)
           );
+          result = newCtx;
           if (patches.length > 0 && !options.noHistory) {
             if (options.logPatch) {
               // eslint-disable-next-line no-console
               console.info("patch", patches);
             }
             const filteredPatches = filterPatch(patches);
+            if (filteredPatches.length > 0) {
+              newPatches = filteredPatches;
+              const [newCtx1, patches1, inversePatches1] = produceWithPatches(
+                result,
+                addtionProducer
+              );
+              if (patches1.length > 0) {
+                result = newCtx1;
+                patches.push(...patches1);
+                inversePatches.push(...inversePatches1);
+                filteredPatches.push(...filterPatch(patches1));
+              }
+            }
+
             let filteredInversePatches = filterPatch(inversePatches);
             if (filteredInversePatches.length > 0) {
               options.id = ctx_.currentSheetId;
@@ -304,6 +330,7 @@ const Workbook = React.forwardRef<WorkbookInstance, Settings & AdditionalProps>(
                 options.addSheet!.id =
                   result.luckysheetfile[result.luckysheetfile.length - 1].id;
               }
+
               globalCache.current.undoList.push({
                 patches: filteredPatches,
                 inversePatches: filteredInversePatches,
@@ -320,7 +347,7 @@ const Workbook = React.forwardRef<WorkbookInstance, Settings & AdditionalProps>(
           return result;
         });
       },
-      [emitOp]
+      [emitOp, addtionProducer]
     );
 
     const handleUndo = useCallback(() => {

@@ -149,6 +149,7 @@ export function calculateSheetFromula(ctx: Context, id: string) {
       if (!ctx.luckysheetfile[index].data![r][c]?.f) {
         continue;
       }
+
       const result = execfunction(
         ctx,
         ctx.luckysheetfile[index].data![r][c]?.f!,
@@ -156,7 +157,8 @@ export function calculateSheetFromula(ctx: Context, id: string) {
         c,
         id
       );
-      api.setCellValue(ctx, r, c, result[1], null);
+
+      api.setCellValue(ctx, r, c, result[1], null, { id });
       insertUpdateFunctionGroup(ctx, r, c, id);
     }
   }

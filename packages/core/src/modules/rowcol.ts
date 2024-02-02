@@ -2488,7 +2488,7 @@ export function insertRowForEnterSpecialCols(
     }
     file.column = file.data[0]?.length;
   }
-  /** ***********************处理区间4************************ */
+
   if (ctx.luckysheetfile[curOrder]?.excelType === "PHA") {
     const currentCell = d[index][currentCol];
     let currentBottomIndex = index;
@@ -2505,8 +2505,6 @@ export function insertRowForEnterSpecialCols(
     }
   }
 
-  /** ***********************处理区间4************************ */
-  /** ***********************处理区间5************************ */
   if (enterType === "addRowMergeAndIndex" || enterType === "addRowMerge") {
     const _range: Range = [];
     _.forEach(merge_new, (mc) => {
