@@ -4,8 +4,8 @@
   min-width: 120px;
   position: absolute;
   z-index: 10002;
-  bottom: 53px;
-  margin-left: 72px;
+  top: 40px;
+  margin-left: 10px;
   max-height: 60%;
 }
 

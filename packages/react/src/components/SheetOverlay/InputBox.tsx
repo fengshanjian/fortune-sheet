@@ -16,6 +16,7 @@ import {
   israngeseleciton,
   escapeHTMLTag,
   isAllowEdit,
+  getSheetIndex,
   insertRowForEnterKey,
   insertRowForEnterSpecialCols,
 } from "@fortune-sheet/core";
@@ -29,7 +30,7 @@ import React, {
   useState,
 } from "react";
 import _ from "lodash";
-import { getSheet } from "packages/core/src/api";
+// import { getSheet } from "packages/core/src/api";
 import WorkbookContext, { SetContextOptions } from "../../context";
 import ContentEditable from "./ContentEditable";
 import FormulaSearch from "./FormulaSearch";
@@ -135,10 +136,12 @@ const InputBox: React.FC = () => {
     }
   }, [context.luckysheetCellUpdate]);
 
-  // 当选中行列是处于隐藏状态的话则不允许编辑
   useEffect(() => {
-    // const data = context.luckysheetfile[data]
-    const sheetData = getSheet(context, { id: context.currentSheetId });
+    // 显示数据验证
+    const sheetData =
+      context.luckysheetfile[
+        getSheetIndex(context, context.currentSheetId) ?? 0
+      ];
     const { luckysheet_select_save } = context;
     if (luckysheet_select_save && luckysheet_select_save?.length > 0) {
       const _r = luckysheet_select_save[0].row_focus;
@@ -152,6 +155,7 @@ const InputBox: React.FC = () => {
         });
       }
     }
+    // 当选中行列是处于隐藏状态的话则不允许编辑
     setIsHidenRC(isShowHidenCR(context));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [context.luckysheet_select_save]);

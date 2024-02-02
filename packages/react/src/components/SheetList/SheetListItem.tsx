@@ -55,6 +55,7 @@ const SheetListItem: React.FC<Props> = ({ sheet, isDropPlaceholder }) => {
           draftCtx.zoomRatio = sheet.zoomRatio || 1;
           cancelActiveImgItem(draftCtx, refs.globalCache);
           cancelNormalSelected(draftCtx);
+          draftCtx.showSheetList = false;
         });
       }}
     >

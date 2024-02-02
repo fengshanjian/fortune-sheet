@@ -118,11 +118,13 @@ const SheetTab: React.FC = () => {
             id="fortune-sheettab-container-c"
             ref={tabContainerRef}
           >
-            {/* {_.sortBy(context.luckysheetfile, (s) => Number(s.order)).map(
+            {_.sortBy(context.luckysheetfile, (s) => Number(s.order)).map(
               (sheet) => {
-                return <SheetItem key={sheet.id} sheet={sheet} />;
+                return context.currentSheetId === sheet.id ? (
+                  <SheetItem key={sheet.id} sheet={sheet} />
+                ) : null;
               }
-            )} */}
+            )}
             {/* <SheetItem
               isDropPlaceholder
               sheet={{ name: "", id: "drop-placeholder" }}

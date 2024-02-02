@@ -155,7 +155,8 @@ const SheetItem: React.FC<Props> = ({ sheet, isDropPlaceholder }) => {
       }}
       onDrop={onDrop}
       onDragStart={onDragStart}
-      draggable={context.allowEdit && !editing}
+      // draggable={context.allowEdit && !editing}
+      draggable={false}
       key={sheet.id}
       ref={containerRef}
       className={
@@ -202,8 +203,13 @@ const SheetItem: React.FC<Props> = ({ sheet, isDropPlaceholder }) => {
         });
       }}
       style={{
+        width: 400,
+        justifyContent: "flex-start",
+        alignItems: "center",
+        paddingLeft: 20,
+        backgroundColor: "transparent",
         borderLeft: dragOver ? "2px solid #0188fb" : "",
-        display: sheet.hide === 1 ? "none" : "",
+        display: sheet.hide === 1 ? "none" : "flex",
       }}
     >
       <span
@@ -211,7 +217,7 @@ const SheetItem: React.FC<Props> = ({ sheet, isDropPlaceholder }) => {
         spellCheck="false"
         suppressContentEditableWarning
         contentEditable={isDropPlaceholder ? false : editing}
-        onDoubleClick={() => setEditing(true)}
+        // onDoubleClick={() => setEditing(true)}
         onBlur={onBlur}
         onKeyDown={onKeyDown}
         ref={editable}
@@ -219,7 +225,7 @@ const SheetItem: React.FC<Props> = ({ sheet, isDropPlaceholder }) => {
       >
         {sheet.name}
       </span>
-      <span
+      {/* <span
         className="luckysheet-sheets-item-function"
         onMouseEnter={() => setSvgColor("#5c5c5c")}
         onMouseLeave={() => setSvgColor("#c3c3c3")}
@@ -240,7 +246,7 @@ const SheetItem: React.FC<Props> = ({ sheet, isDropPlaceholder }) => {
         }}
       >
         <SVGIcon name="downArrow" width={12} style={{ fill: svgColor }} />
-      </span>
+      </span> */}
       {!!sheet.color && (
         <div
           className="luckysheet-sheets-item-color"
