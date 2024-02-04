@@ -681,6 +681,7 @@ export function updateCell(
 ) {
   let inputText = $input?.innerText;
   const inputHtml = $input?.innerHTML;
+
   const flowdata = getFlowdata(ctx);
   if (!flowdata) return;
 
@@ -808,7 +809,7 @@ export function updateCell(
       !isRealNull(value)
     ) {
       delete curv.m; // 更新时间m处理 ， 会实际删除单元格数据的参数（flowdata时已删除）
-      if (curv.f) {
+      if (curv.f && ctx.luckysheetfile[index].excelType !== "PHA") {
         // 如果原来是公式，而更新的数据不是公式，则把公式删除
         delete curv.f;
         delete curv.spl; // 删除单元格的sparklines的配置串
@@ -886,22 +887,36 @@ export function updateCell(
           });
         }
       } else {
-        delFunctionGroup(ctx, r, c);
-        execFunctionGroup(ctx, r, c, value);
-        isRunExecFunction = false;
+        if (ctx.luckysheetfile[index].excelType !== "PHA") {
+          delFunctionGroup(ctx, r, c);
+          execFunctionGroup(ctx, r, c, value);
+          isRunExecFunction = false;
 
-        curv = _.cloneDeep(d?.[r]?.[c] || {});
-        curv.v = value;
+          curv = _.cloneDeep(d?.[r]?.[c] || {});
+          curv.v = value;
 
-        delete curv.f;
-        delete curv.spl;
+          delete curv.f;
+          delete curv.spl;
 
-        if (curv.qp === 1 && `${value}`.substring(0, 1) !== "'") {
-          // if quotePrefix is 1, cell is force string, cell clear quotePrefix when it is updated
-          curv.qp = 0;
-          if (curv.ct) {
-            curv.ct.fa = "General";
-            curv.ct.t = "n";
+          if (curv.qp === 1 && `${value}`.substring(0, 1) !== "'") {
+            // if quotePrefix is 1, cell is force string, cell clear quotePrefix when it is updated
+            curv.qp = 0;
+            if (curv.ct) {
+              curv.ct.fa = "General";
+              curv.ct.t = "n";
+            }
+          }
+        } else {
+          curv = _.cloneDeep(d?.[r]?.[c] || {});
+          curv.v = value;
+
+          if (curv.qp === 1 && `${value}`.substring(0, 1) !== "'") {
+            // if quotePrefix is 1, cell is force string, cell clear quotePrefix when it is updated
+            curv.qp = 0;
+            if (curv.ct) {
+              curv.ct.fa = "General";
+              curv.ct.t = "n";
+            }
           }
         }
       }

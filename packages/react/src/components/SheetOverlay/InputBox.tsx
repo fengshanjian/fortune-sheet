@@ -97,7 +97,7 @@ const InputBox: React.FC = () => {
       if (cell && !refs.globalCache.overwriteCell) {
         if (isInlineStringCell(cell)) {
           value = getInlineStringHTML(row_index, col_index, flowdata);
-        } else if (cell.f) {
+        } else if (cell.f && context.luckysheetfile[0].excelType !== "PHA") {
           value = getCellValue(row_index, col_index, flowdata, "f");
           setContext((ctx) => {
             createRangeHightlight(ctx, value);
@@ -116,6 +116,24 @@ const InputBox: React.FC = () => {
       if (!refs.globalCache.doNotFocus) {
         setTimeout(() => {
           moveToEnd(inputRef.current!);
+          // 显示数据验证
+          const sheetData =
+            context.luckysheetfile[
+              getSheetIndex(context, context.currentSheetId) ?? 0
+            ];
+          const { luckysheet_select_save } = context;
+          if (luckysheet_select_save && luckysheet_select_save?.length > 0) {
+            const _r = luckysheet_select_save[0].row_focus;
+            const _c = luckysheet_select_save[0].column_focus;
+            if (
+              sheetData.dataVerification &&
+              sheetData.dataVerification[`${_r}_${_c}`]
+            ) {
+              setContext((ctx) => {
+                ctx.dataVerificationDropDownList = true;
+              });
+            }
+          }
         });
       }
       delete refs.globalCache.doNotFocus;
@@ -137,24 +155,6 @@ const InputBox: React.FC = () => {
   }, [context.luckysheetCellUpdate]);
 
   useEffect(() => {
-    // 显示数据验证
-    const sheetData =
-      context.luckysheetfile[
-        getSheetIndex(context, context.currentSheetId) ?? 0
-      ];
-    const { luckysheet_select_save } = context;
-    if (luckysheet_select_save && luckysheet_select_save?.length > 0) {
-      const _r = luckysheet_select_save[0].row_focus;
-      const _c = luckysheet_select_save[0].column_focus;
-      if (
-        sheetData.dataVerification &&
-        sheetData.dataVerification[`${_r}_${_c}`]
-      ) {
-        setContext((ctx) => {
-          ctx.dataVerificationDropDownList = true;
-        });
-      }
-    }
     // 当选中行列是处于隐藏状态的话则不允许编辑
     setIsHidenRC(isShowHidenCR(context));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -357,6 +357,7 @@ const InputBox: React.FC = () => {
           if (!isAllowEdit(draftCtx, draftCtx.luckysheet_select_save)) {
             return;
           }
+
           // if(event.target.id!="luckysheet-input-box" && event.target.id!="luckysheet-rich-text-editor"){
           handleFormulaInput(
             draftCtx,
