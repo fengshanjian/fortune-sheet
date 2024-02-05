@@ -1846,13 +1846,15 @@ export function insertRowForEnterKey(
               setCellValue(ctx, i, currentCol, file.data, `${preIndex + 1}.`);
             } else {
               let value = String(cellObject.v ?? "");
+
               if (isEmpty(value) || value === undefined) {
                 value = `${preIndex + 1}.`;
-              } else if (
-                !value.startsWith(`${preIndex + 1}.`) &&
-                value.startsWith(`${preIndex}.`)
-              ) {
-                value = value.replace(`${preIndex}.`, `${preIndex + 1}.`);
+              } else if (!value.startsWith(`${preIndex + 1}.`)) {
+                if (value.startsWith(`${preIndex}.`)) {
+                  value = value.replace(`${preIndex}.`, `${preIndex + 1}.`);
+                } else {
+                  value = `${preIndex + 1}.${value}`;
+                }
               }
               setCellValue(ctx, i, currentCol, file.data, value);
               if (cellObject.mc?.rs) {
@@ -2221,8 +2223,6 @@ export function insertRowForEnterSpecialCols(
   });
   cfg.merge = merge_new;
 
-  console.log("merge_new", merge_new);
-
   if (needAddRow) {
     /** ***********************处理区间2************************ */
     // 行高配置变动
@@ -2451,7 +2451,6 @@ export function insertRowForEnterSpecialCols(
       }
     }
   }
-  console.log(JSON.stringify(d));
 
   // 修改当前sheet页时刷新
   file.data = d;

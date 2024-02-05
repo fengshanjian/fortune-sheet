@@ -185,68 +185,7 @@ const InputBox: React.FC = () => {
           document.execCommand("delete", false);
           e.stopPropagation();
         }
-        const position = context.luckysheet_select_save?.[0]?.row?.[0];
-        const col = context.luckysheet_select_save?.[0]?.column?.[0] ?? 0;
 
-        if (position == null || position === 0) return;
-        const count = 1;
-        const direction = "rightbottom";
-        const insertRowColOp: SetContextOptions["insertRowColOp"] = {
-          type: "row",
-          index: position,
-          count,
-          direction,
-          id: context.currentSheetId,
-        };
-
-        setTimeout(() => {
-          setContext(
-            (draftCtx) => {
-              if (draftCtx.luckysheetfile[0].enterType === "normal") {
-                return;
-              }
-              if (
-                (draftCtx.luckysheetfile[0].enterType === "addRow" ||
-                  draftCtx.luckysheetfile[0].enterType === "addRowAndIndex") &&
-                col !== 0
-              ) {
-                return;
-              }
-              if (
-                draftCtx.luckysheetfile[0].enterExcludeCols &&
-                draftCtx.luckysheetfile[0].enterExcludeCols.includes(col)
-              ) {
-                return;
-              }
-              try {
-                const enterSpecialCol =
-                  draftCtx.luckysheetfile[0].enterSpecialCol ?? 0;
-                if (
-                  enterSpecialCol > 0 &&
-                  (enterSpecialCol === col || enterSpecialCol === col + 1)
-                ) {
-                  insertRowForEnterSpecialCols(
-                    draftCtx,
-                    insertRowColOp,
-                    col,
-                    draftCtx.luckysheetfile[0].enterType
-                  );
-                } else {
-                  insertRowForEnterKey(
-                    draftCtx,
-                    insertRowColOp,
-                    col,
-                    draftCtx.luckysheetfile[0].enterType
-                  );
-                }
-                draftCtx.contextMenu = {};
-              } catch (err: any) {
-                draftCtx.contextMenu = {};
-              }
-            },
-            { insertRowColOp }
-          );
-        }, 100);
         // if (
         //   $("#luckysheet-formula-search-c").is(":visible") &&
         //   formula.searchFunctionCell != null

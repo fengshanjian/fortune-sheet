@@ -18,6 +18,7 @@ import {
   CellMatrix,
   insertRowCol,
   locale,
+  api,
   calcSelectionInfo,
   groupValuesRefresh,
 } from "@fortune-sheet/core";
@@ -259,6 +260,9 @@ const Workbook = React.forwardRef<WorkbookInstance, Settings & AdditionalProps>(
     }
     const addtionProducer = useCallback(
       (ctx: Context) => {
+        _.forEach(ctx.luckysheetfile, (sheet_obj) => {
+          api.calculateSheetFromula(ctx, sheet_obj.id as string);
+        });
         if (preHandler) {
           preHandler(ctx.luckysheetfile, newPatches);
         }

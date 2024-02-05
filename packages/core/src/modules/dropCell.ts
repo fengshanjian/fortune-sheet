@@ -11,6 +11,7 @@ import * as formula from "./formula";
 import { isRealNum } from "./validation";
 import { CFSplitRange } from "./ConditionFormat";
 import { normalizeSelection } from "./selection";
+import { jfrefreshgrid } from "./refresh";
 
 function toPx(v: number) {
   return `${v}px`;
@@ -2393,7 +2394,7 @@ export function updateDropCell(ctx: Context) {
                   }
                 }
 
-                cell.ct = cell.ct || { fa: "General", t: "n" };
+                cell.ct = cell.ct || { fa: "@", t: "s" };
               } else {
                 const mask = genarate(cell.v);
                 cell.m = mask![0].toString();
@@ -2492,7 +2493,7 @@ export function updateDropCell(ctx: Context) {
                   }
                 }
 
-                cell.ct = { fa: "General", t: "n" };
+                cell.ct = { fa: "@", t: "s" };
               } else {
                 const mask = genarate(cell.v);
                 cell.m = mask![0].toString();
@@ -2599,7 +2600,7 @@ export function updateDropCell(ctx: Context) {
                   }
                 }
 
-                cell.ct = { fa: "General", t: "n" };
+                cell.ct = { fa: "@", t: "s" };
               } else {
                 const mask = genarate(cell.v);
                 cell.m = mask![0].toString();
@@ -2697,7 +2698,7 @@ export function updateDropCell(ctx: Context) {
                   }
                 }
 
-                cell.ct = { fa: "General", t: "n" };
+                cell.ct = { fa: "@", t: "s" };
               } else {
                 const mask = genarate(cell.v);
                 cell.m = mask![0].toString();
@@ -2783,7 +2784,7 @@ export function updateDropCell(ctx: Context) {
   //   cdformat,
   //   dataVerification,
   // };
-  // jfrefreshgrid(d, ctx.luckysheet_select_save, allParam);
+  jfrefreshgrid(ctx, d, ctx.luckysheet_select_save);
 
   // selectHightlightShow();
 }

@@ -11,12 +11,17 @@ import {
   selectAll,
   selectionCache,
 } from "../modules/selection";
+import {
+  insertRowForEnterKey,
+  insertRowForEnterSpecialCols,
+} from "../modules/rowcol";
 import { cancelPaintModel, handleBold } from "../modules/toolbar";
 import { hasPartMC } from "../modules/validation";
 import { GlobalCache } from "../types";
 import { getNowDateTime, isAllowEdit } from "../utils";
 import { handleCopy } from "./copy";
 import { jfrefreshgrid } from "../modules/refresh";
+import { PatchOptions } from "../utils/patch";
 
 export function handleGlobalEnter(
   ctx: Context,
@@ -46,6 +51,7 @@ export function handleGlobalEnter(
     //   );
     // } else {
     const lastCellUpdate = _.clone(ctx.luckysheetCellUpdate);
+
     updateCell(
       ctx,
       ctx.luckysheetCellUpdate[0],
@@ -54,6 +60,60 @@ export function handleGlobalEnter(
       undefined,
       canvas
     );
+
+    const position = ctx.luckysheet_select_save?.[0]?.row?.[0];
+    const col = ctx.luckysheet_select_save?.[0]?.column?.[0] ?? 0;
+
+    if (position == null || position === 0) return;
+    const count = 1;
+    const direction = "rightbottom";
+    const insertRowColOp: PatchOptions["insertRowColOp"] = {
+      type: "row",
+      index: position,
+      count,
+      direction,
+      id: ctx.currentSheetId,
+    };
+    if (ctx.luckysheetfile[0].enterType === "normal") {
+      return;
+    }
+    if (
+      (ctx.luckysheetfile[0].enterType === "addRow" ||
+        ctx.luckysheetfile[0].enterType === "addRowAndIndex") &&
+      col !== 0
+    ) {
+      return;
+    }
+    if (
+      ctx.luckysheetfile[0].enterExcludeCols &&
+      ctx.luckysheetfile[0].enterExcludeCols.includes(col)
+    ) {
+      return;
+    }
+    try {
+      const enterSpecialCol = ctx.luckysheetfile[0].enterSpecialCol ?? 0;
+      if (
+        enterSpecialCol > 0 &&
+        (enterSpecialCol === col || enterSpecialCol === col + 1)
+      ) {
+        insertRowForEnterSpecialCols(
+          ctx,
+          insertRowColOp,
+          col,
+          ctx.luckysheetfile[0].enterType
+        );
+      } else {
+        insertRowForEnterKey(
+          ctx,
+          insertRowColOp,
+          col,
+          ctx.luckysheetfile[0].enterType
+        );
+      }
+      ctx.contextMenu = {};
+    } catch (err: any) {
+      ctx.contextMenu = {};
+    }
     ctx.luckysheet_select_save = [
       {
         row: [lastCellUpdate[0], lastCellUpdate[0]],
@@ -63,8 +123,6 @@ export function handleGlobalEnter(
       },
     ];
     moveHighlightCell(ctx, "down", 1, "rangeOfSelect");
-    // }
-
     // // 若有参数弹出框，隐藏
     // if ($("#luckysheet-search-formula-parm").is(":visible")) {
     //   $("#luckysheet-search-formula-parm").hide();

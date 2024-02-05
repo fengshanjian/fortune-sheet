@@ -349,6 +349,7 @@ export function setCellValue(
     }
   }
 
+  cell.ct = ctx.defaultCell.ct;
   // if (!server.allowUpdate && !luckysheetConfigsetting.pointEdit) {
   //   if (
   //     !_.isNil(cell.ct) &&

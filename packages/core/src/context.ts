@@ -447,7 +447,7 @@ export function defaultContext(refs: RefValues): Context {
     // 默认单元格
     defaultCell: {
       bl: 0,
-      ct: { fa: "General", t: "n" },
+      ct: { fa: "@", t: "s" },
       fc: "rgb(51, 51, 51)",
       ff: 0,
       fs: 11,

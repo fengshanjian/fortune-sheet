@@ -276,7 +276,7 @@ export function genarate(value: string | number | boolean) {
     ct.fa = "General";
     ct.t = "g";
   }
-
+  ct = { fa: "@", t: "s" };
   return [m, ct, v];
 }
 
