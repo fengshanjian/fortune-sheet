@@ -260,12 +260,12 @@ const Workbook = React.forwardRef<WorkbookInstance, Settings & AdditionalProps>(
     }
     const addtionProducer = useCallback(
       (ctx: Context) => {
-        _.forEach(ctx.luckysheetfile, (sheet_obj) => {
-          api.calculateSheetFromula(ctx, sheet_obj.id as string);
-        });
         if (preHandler) {
           preHandler(ctx.luckysheetfile, newPatches);
         }
+        _.forEach(ctx.luckysheetfile, (sheet_obj) => {
+          api.calculateSheetFromula(ctx, sheet_obj.id as string);
+        });
       },
       [preHandler]
     );
