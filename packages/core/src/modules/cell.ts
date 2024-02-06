@@ -195,6 +195,7 @@ export function setCellValue(
   }
 
   if (!cell) return;
+  cell.ct = ctx.defaultCell.ct;
 
   const vupdateStr = vupdate.toString();
 
