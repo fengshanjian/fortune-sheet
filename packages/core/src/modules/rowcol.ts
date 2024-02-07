@@ -1827,13 +1827,13 @@ export function insertRowForEnterKey(
           if (i === r) {
             // 第二行，i=1时（首行默认不进行任何操作）
             if (cellObject === null) {
-              setCellValue(ctx, i, currentCol, file.data, `1.`);
+              setCellValue(ctx, i, currentCol, file.data, `1. `);
             } else {
               let value = String(cellObject.v ?? "");
               if (isEmpty(value)) {
-                value = `1.`;
+                value = `1. `;
               } else if (!value.startsWith(`1.`)) {
-                value = `1.${value}`;
+                value = `1. ${value}`;
               }
               setCellValue(ctx, i, currentCol, file.data, value);
               if (cellObject.mc?.rs) {
@@ -1843,17 +1843,17 @@ export function insertRowForEnterKey(
             preIndex = 1;
           } else {
             if (cellObject === null) {
-              setCellValue(ctx, i, currentCol, file.data, `${preIndex + 1}.`);
+              setCellValue(ctx, i, currentCol, file.data, `${preIndex + 1}. `);
             } else {
               let value = String(cellObject.v ?? "");
 
               if (isEmpty(value) || value === undefined) {
-                value = `${preIndex + 1}.`;
+                value = `${preIndex + 1}. `;
               } else if (!value.startsWith(`${preIndex + 1}.`)) {
                 if (value.startsWith(`${preIndex}.`)) {
                   value = value.replace(`${preIndex}.`, `${preIndex + 1}.`);
                 } else {
-                  value = `${preIndex + 1}.${value}`;
+                  value = `${preIndex + 1}. ${value}`;
                 }
               }
               setCellValue(ctx, i, currentCol, file.data, value);
@@ -1876,13 +1876,13 @@ export function insertRowForEnterKey(
           if (i === 1) {
             // 第二行，i=1时（首行默认不进行任何操作）
             if (cellObject === null) {
-              setCellValue(ctx, i, 0, file.data, `1.`);
+              setCellValue(ctx, i, 0, file.data, `1. `);
             } else {
               let value = String(cellObject.v ?? "");
               if (isEmpty(value)) {
-                value = `1.`;
+                value = `1. `;
               } else if (!value.startsWith(`1.`)) {
-                value = `1.${value}`;
+                value = `1. ${value}`;
               }
               setCellValue(ctx, i, 0, file.data, value);
               if (cellObject.mc?.rs) {
@@ -1922,13 +1922,13 @@ export function insertRowForEnterKey(
       if (file.data) {
         const cellObject = file.data[i][0];
         if (cellObject === null) {
-          setCellValue(ctx, i, 0, file.data, `${i}.`);
+          setCellValue(ctx, i, 0, file.data, `${i}. `);
         } else {
           let value = String(cellObject.v);
           if (value.startsWith(`${i - 1}.`)) {
             value = value.replace(`${i - 1}.`, `${i}.`);
           } else if (!value.startsWith(`${i}.`)) {
-            value = `${i}.${value}`;
+            value = `${i}. ${value}`;
           }
           setCellValue(ctx, i, 0, file.data, value);
         }
@@ -2540,13 +2540,13 @@ export function insertRowForEnterSpecialCols(
           if (i === r) {
             // 第二行，i=1时（首行默认不进行任何操作）
             if (cellObject === null) {
-              setCellValue(ctx, i, currentCol, file.data, `1.`);
+              setCellValue(ctx, i, currentCol, file.data, `1. `);
             } else {
               let value = String(cellObject.v ?? "");
               if (isEmpty(value)) {
-                value = `1.`;
+                value = `1. `;
               } else if (!value.startsWith(`1.`)) {
-                value = `1.${value}`;
+                value = `1. ${value}`;
               }
               setCellValue(ctx, i, currentCol, file.data, value);
               if (cellObject.mc?.rs) {
@@ -2587,13 +2587,13 @@ export function insertRowForEnterSpecialCols(
           if (i === 1) {
             // 第二行，i=1时（首行默认不进行任何操作）
             if (cellObject === null) {
-              setCellValue(ctx, i, 0, file.data, `1.`);
+              setCellValue(ctx, i, 0, file.data, `1. `);
             } else {
               let value = String(cellObject.v ?? "");
               if (isEmpty(value)) {
-                value = `1.`;
+                value = `1. `;
               } else if (!value.startsWith(`1.`)) {
-                value = `1.${value}`;
+                value = `1. ${value}`;
               }
               setCellValue(ctx, i, 0, file.data, value);
               if (cellObject.mc?.rs) {
@@ -2633,13 +2633,13 @@ export function insertRowForEnterSpecialCols(
       if (file.data) {
         const cellObject = file.data[i][0];
         if (cellObject === null) {
-          setCellValue(ctx, i, 0, file.data, `${i}.`);
+          setCellValue(ctx, i, 0, file.data, `${i}. `);
         } else {
           let value = String(cellObject.v);
           if (value.startsWith(`${i - 1}.`)) {
             value = value.replace(`${i - 1}.`, `${i}.`);
           } else if (!value.startsWith(`${i}.`)) {
-            value = `${i}.${value}`;
+            value = `${i}. ${value}`;
           }
           setCellValue(ctx, i, 0, file.data, value);
         }
