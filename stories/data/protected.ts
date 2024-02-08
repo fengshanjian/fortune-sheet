@@ -16,7 +16,7 @@ const partialEditableSheet = {
   name: "partial editable",
   config: {
     colReadOnly: { "1": 1 },
-    rowReadOnly: { "1": 1 },
+    rowReadOnly: { "2": 2 },
     columnlen: {
       "0": 200,
       "1": 200,

@@ -111,16 +111,16 @@ const data = {
   dataVerification: {
     "0_0": {
       type: "dropdown",
-      type2: "",
-      rangeTxt: "A1",
-      value1: "1,2,3,4,a",
-      value2: "",
-      validity: "",
-      remote: false,
-      prohibitInput: true,
-      hintShow: true,
-      hintValue: "",
-      checked: false,
+      // type2: "",
+      // rangeTxt: "E1",
+      value1: "1. 2,2,3,4,a",
+      // value2: "",
+      // validity: "",
+      // remote: false,
+      // prohibitInput: false,
+      // hintShow: true,
+      // hintValue: "",
+      // checked: false,
     },
     "0_1": {
       type: "dropdown",
@@ -148,6 +148,7 @@ const data = {
       hintValue: "自定义",
       checked: false,
     },
+
     "0_3": {
       type: "validity",
       type2: "phoneNumber",
@@ -160,6 +161,10 @@ const data = {
       hintShow: true,
       hintValue: "",
       checked: false,
+    },
+    "0_5": {
+      type: "dropdown",
+      value1: "1. 2,2,3,4,a",
     },
     "1_0": {
       type: "number",

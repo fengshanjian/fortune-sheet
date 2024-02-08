@@ -1,10 +1,10 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { Meta, StoryFn } from "@storybook/react";
 import { Sheet } from "@fortune-sheet/core";
 import { Workbook } from "@fortune-sheet/react";
 import cell from "./data/cell";
 import formula from "./data/formula";
-import empty from "./data/empty";
+import { emptyData, emptyData1, emptyData2 } from "./data/empty";
 import freeze from "./data/freeze";
 import dataVerification from "./data/dataVerification";
 import lockcellData from "./data/protected";
@@ -19,12 +19,29 @@ const Template: StoryFn<typeof Workbook> = ({
   ...args
 }) => {
   const [data, setData] = useState<Sheet[]>(data0);
+
+  const ref = useRef(null);
   const onChange = useCallback((d: Sheet[]) => {
     setData(d);
+    console.log(d);
   }, []);
+  const onPreHandler = useCallback((sheetd, patches) => {
+    // sheetd[0].data[0][1] = {
+    //   v: "hello world",
+    //   m: "hello world",
+    // };
+    // console.log(patches);
+  }, []);
+
   return (
     <div style={{ width: "100%", height: "100vh" }}>
-      <Workbook {...args} data={data} onChange={onChange} />
+      <Workbook
+        ref={ref}
+        {...args}
+        data={data}
+        onChange={onChange}
+        preHandler={onPreHandler}
+      />
     </div>
   );
 };
@@ -38,7 +55,7 @@ export const Formula = Template.bind({});
 Formula.args = { data: [formula] };
 
 export const Empty = Template.bind({});
-Empty.args = { data: [empty] };
+Empty.args = { data: [emptyData, emptyData1, emptyData2] };
 
 export const Tabs = Template.bind({});
 // @ts-ignore
@@ -75,7 +92,7 @@ export const MultiInstance: StoryFn<typeof Workbook> = () => {
           boxSizing: "border-box",
         }}
       >
-        <Workbook data={[empty]} />
+        <Workbook data={[emptyData, emptyData1, emptyData2]} />
       </div>
       <div
         style={{
@@ -86,7 +103,7 @@ export const MultiInstance: StoryFn<typeof Workbook> = () => {
           boxSizing: "border-box",
         }}
       >
-        <Workbook data={[empty]} />
+        <Workbook data={[emptyData, emptyData1, emptyData2]} />
       </div>
     </div>
   );

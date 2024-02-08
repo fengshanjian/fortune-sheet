@@ -2224,7 +2224,6 @@ export function insertRowForEnterSpecialCols(
   cfg.merge = merge_new;
 
   if (needAddRow) {
-    /** ***********************处理区间2************************ */
     // 行高配置变动
     if (cfg.rowlen != null) {
       const rowlen_new: any = {};
@@ -2305,45 +2304,123 @@ export function insertRowForEnterSpecialCols(
     }
     /** ***********************处理区间2************************ */
     // 空行模板
-    const row = [];
-    const currentCell = d[index][currentCol];
-    let currentBottomIndex = index;
-    if (currentCell?.mc?.rs) {
-      currentBottomIndex = index + currentCell.mc.rs - 1;
-    }
-    const curRow = [...d][currentBottomIndex];
+    if (currentCol === specialCol1) {
+      // const row = [];
+      // const currentCell = d[index][currentCol];
+      // let currentBottomIndex = index;
+      // if (currentCell?.mc?.rs) {
+      //   currentBottomIndex = index + currentCell.mc.rs - 1;
+      // }
+      // const curRow = [...d][currentBottomIndex];
 
-    for (let c = 0; c < d[0].length; c += 1) {
-      const cell = curRow[c];
-      let templateCell = null;
-      if (
-        cell?.mc &&
-        (direction === "rightbottom" || currentBottomIndex !== cell.mc.r)
-      ) {
-        if (cell.mc.rs) {
-          cell.mc.rs += count;
-        }
+      // for (let c = 0; c < d[0].length; c += 1) {
+      //   const cell = curRow[c];
+      //   let templateCell = null;
 
-        templateCell = { ...cell };
-        if (!d?.[currentBottomIndex + 1]?.[c]?.mc) {
-          templateCell.mc = undefined;
-        }
-        delete templateCell.v;
-        delete templateCell.m;
-        delete templateCell.ps;
-        delete templateCell.f;
+      //   if (
+      //     cell?.mc &&
+      //     (direction === "rightbottom" || currentBottomIndex !== cell.mc.r)
+      //   ) {
+      //     if (cell.mc.rs) {
+      //       cell.mc.rs += count;
+      //     }
+
+      //     templateCell = { ...cell };
+      //     if (!d?.[currentBottomIndex + 1]?.[c]?.mc) {
+      //       templateCell.mc = undefined;
+      //     }
+      //     delete templateCell.v;
+      //     delete templateCell.m;
+      //     delete templateCell.ps;
+      //     delete templateCell.f;
+      //   }
+      //   row.push(templateCell);
+      // }
+
+      // const arr = [];
+      // for (let r = 0; r < count; r += 1) {
+      //   arr.push(JSON.stringify(row));
+      // }
+      // new Function(
+      //   "d",
+      //   `return d.splice(${currentBottomIndex + 1}, 0, ${arr.join(",")})`
+      // )(d);
+      const row = [];
+      const preCell = d[index][currentCol - 1];
+      let currentBottomIndex = index;
+      if (preCell == null || undefined === preCell.mc) {
+        currentBottomIndex = index;
+      } else {
+        const _cell = d[preCell.mc.r][currentCol - 2];
+        const _r = _cell?.mc?.r || 0;
+        const _rs = _cell?.mc?.rs || 0;
+        currentBottomIndex = _r + _rs - 1;
       }
-      row.push(templateCell);
-    }
+      const curRow = [...d][currentBottomIndex];
+      for (let c = 0; c < d[0].length; c += 1) {
+        const cell = curRow[c];
+        let templateCell = null;
+        if (c < specialCol1 || c >= specialCol2) {
+          if (cell?.mc) {
+            templateCell = { mc: JSON.parse(JSON.stringify(cell.mc)) };
+            if (cell.mc.rs) {
+              cell.mc.rs += count;
+            }
+          } else {
+            templateCell = { mc: { r: index, c } };
+          }
+        }
+        row.push(templateCell);
+      }
 
-    const arr = [];
-    for (let r = 0; r < count; r += 1) {
-      arr.push(JSON.stringify(row));
+      const arr = [];
+      for (let r = 0; r < count; r += 1) {
+        arr.push(JSON.stringify(row));
+      }
+
+      new Function(
+        "d",
+        `return d.splice(${currentBottomIndex + 1}, 0, ${arr.join(",")})`
+      )(d);
+    } else {
+      const row = [];
+      const preCell = d[index][currentCol - 2];
+      let currentBottomIndex = index;
+      if (preCell == null || undefined === preCell.mc) {
+        currentBottomIndex = index;
+      } else {
+        const _cell = d[preCell.mc.r][currentCol - 2];
+        const _r = _cell?.mc?.r || 0;
+        const _rs = _cell?.mc?.rs || 0;
+        currentBottomIndex = _r + _rs - 1;
+      }
+      const curRow = [...d][currentBottomIndex];
+      for (let c = 0; c < d[0].length; c += 1) {
+        const cell = curRow[c];
+        let templateCell = null;
+        if (c <= specialCol1) {
+          if (cell?.mc) {
+            templateCell = { mc: JSON.parse(JSON.stringify(cell.mc)) };
+            if (cell.mc.rs) {
+              cell.mc.rs += count;
+            }
+          } else {
+            templateCell = { mc: { r: index, c } };
+          }
+        }
+        row.push(templateCell);
+      }
+
+      const arr = [];
+      for (let r = 0; r < count; r += 1) {
+        arr.push(JSON.stringify(row));
+      }
+
+      new Function(
+        "d",
+        `return d.splice(${currentBottomIndex + 1}, 0, ${arr.join(",")})`
+      )(d);
     }
-    new Function(
-      "d",
-      `return d.splice(${currentBottomIndex + 1}, 0, ${arr.join(",")})`
-    )(d);
   } else {
     if (currentCol === specialCol1) {
       if (special1LastCell && special1LastCell.mc) {
@@ -2505,16 +2582,24 @@ export function insertRowForEnterSpecialCols(
   }
 
   if (enterType === "addRowMergeAndIndex" || enterType === "addRowMerge") {
-    const _range: Range = [];
+    // const _range: Range = [];
     _.forEach(merge_new, (mc) => {
       const { r, c, rs } = mc;
-      if (rs === 2 && merge_old[`${r}_${c}`]?.rs === 1) {
-        _range.push({ row: [r, r + 1], column: [c, c] });
+      const cell = d[r][c];
+      if (cell != null) {
+        cell.mc = mc;
+      } else {
+        d[r][c] = { mc };
+      }
+      for (let i = 1; i < rs; i += 1) {
+        const element = d[r + i][c];
+        if (element != null) {
+          element.mc = mc;
+        } else {
+          d[r + i][c] = { mc: { r, c } };
+        }
       }
     });
-    if (_range.length > 0) {
-      mergeCells(ctx, ctx.currentSheetId, _range, "merge-all");
-    }
   }
 
   refreshLocalMergeData(merge_new, file);
@@ -2526,7 +2611,9 @@ export function insertRowForEnterSpecialCols(
     !_.includes(exclueCols, currentCol)
   ) {
     if (currentCol > 0) {
-      const data = file.data[index][currentCol - 1];
+      const __col =
+        file.enterSpecialCol === currentCol ? currentCol - 1 : currentCol - 2;
+      const data = file.data[index][__col];
       if (data?.mc) {
         const r = Number(data.mc?.r);
         const c = Number(data.mc?.c);

@@ -18,7 +18,7 @@ import {
 import { cancelPaintModel, handleBold } from "../modules/toolbar";
 import { hasPartMC } from "../modules/validation";
 import { GlobalCache } from "../types";
-import { getNowDateTime, isAllowEdit } from "../utils";
+import { getNowDateTime, isAllowEdit, getSheetIndex } from "../utils";
 import { handleCopy } from "./copy";
 import { jfrefreshgrid } from "../modules/refresh";
 import { PatchOptions } from "../utils/patch";
@@ -74,40 +74,41 @@ export function handleGlobalEnter(
       direction,
       id: ctx.currentSheetId,
     };
-    if (ctx.luckysheetfile[0].enterType === "normal") {
+    const sheetIndex = getSheetIndex(ctx, ctx.currentSheetId) as number;
+    if (ctx.luckysheetfile[sheetIndex].enterType === "normal") {
       return;
     }
     if (
-      (ctx.luckysheetfile[0].enterType === "addRow" ||
-        ctx.luckysheetfile[0].enterType === "addRowAndIndex") &&
+      (ctx.luckysheetfile[sheetIndex].enterType === "addRow" ||
+        ctx.luckysheetfile[sheetIndex].enterType === "addRowAndIndex") &&
       col !== 0
     ) {
       return;
     }
-    if (
-      ctx.luckysheetfile[0].enterExcludeCols &&
-      ctx.luckysheetfile[0].enterExcludeCols.includes(col)
-    ) {
+    const { enterExcludeCols } = ctx.luckysheetfile[sheetIndex];
+    if (enterExcludeCols && enterExcludeCols.includes(col)) {
       return;
     }
+
     try {
-      const enterSpecialCol = ctx.luckysheetfile[0].enterSpecialCol ?? 0;
+      const enterSpecialCol =
+        ctx.luckysheetfile[sheetIndex].enterSpecialCol ?? 0;
       if (
         enterSpecialCol > 0 &&
-        (enterSpecialCol === col || enterSpecialCol === col + 1)
+        (enterSpecialCol === col || enterSpecialCol === col - 1)
       ) {
         insertRowForEnterSpecialCols(
           ctx,
           insertRowColOp,
           col,
-          ctx.luckysheetfile[0].enterType
+          ctx.luckysheetfile[sheetIndex].enterType
         );
       } else {
         insertRowForEnterKey(
           ctx,
           insertRowColOp,
           col,
-          ctx.luckysheetfile[0].enterType
+          ctx.luckysheetfile[sheetIndex].enterType
         );
       }
       ctx.contextMenu = {};
