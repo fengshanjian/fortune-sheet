@@ -17,8 +17,7 @@ import {
   escapeHTMLTag,
   isAllowEdit,
   getSheetIndex,
-  insertRowForEnterKey,
-  insertRowForEnterSpecialCols,
+  getSheet,
 } from "@fortune-sheet/core";
 import React, {
   useContext,
@@ -30,8 +29,7 @@ import React, {
   useState,
 } from "react";
 import _ from "lodash";
-// import { getSheet } from "packages/core/src/api";
-import WorkbookContext, { SetContextOptions } from "../../context";
+import WorkbookContext from "../../context";
 import ContentEditable from "./ContentEditable";
 import FormulaSearch from "./FormulaSearch";
 import FormulaHint from "./FormulaHint";
@@ -94,6 +92,7 @@ const InputBox: React.FC = () => {
       const flowdata = getFlowdata(context);
       const cell = flowdata?.[row_index]?.[col_index];
       let value = "";
+
       if (cell && !refs.globalCache.overwriteCell) {
         if (isInlineStringCell(cell)) {
           value = getInlineStringHTML(row_index, col_index, flowdata);
@@ -109,9 +108,30 @@ const InputBox: React.FC = () => {
           }
         }
       }
+
       refs.globalCache.overwriteCell = false;
+      if (value === "" && context.luckysheetfile[0].excelType === "PHA") {
+        const sheet = getSheet(context);
+        if (sheet != null) {
+          if (
+            sheet.enterType === "addRowAndIndex" &&
+            row_index === 1 &&
+            col_index === 0
+          ) {
+            value = "1. ";
+          } else if (
+            sheet.enterType === "addRowMergeAndIndex" &&
+            !_.includes(sheet.enterIndexExcludeCols, col_index) &&
+            !_.includes(sheet.enterExcludeCols, col_index)
+          ) {
+            value = "1. ";
+          }
+        }
+      }
+
       if (!refs.globalCache.ignoreWriteCell)
         inputRef.current!.innerHTML = escapeHTMLTag(escapeScriptTag(value));
+
       refs.globalCache.ignoreWriteCell = false;
       if (!refs.globalCache.doNotFocus) {
         setTimeout(() => {
@@ -224,6 +244,32 @@ const InputBox: React.FC = () => {
       } else if (e.key === "F4" && context.luckysheetCellUpdate.length > 0) {
         // formula.setfreezonFuc(event);
         e.preventDefault();
+      } else if (
+        (e.key === "Backspace" || e.key === "Delete") &&
+        context.luckysheetCellUpdate.length > 0
+      ) {
+        const sheet = getSheet(context);
+        if (sheet != null) {
+          if (sheet.enterType === "addRowAndIndex" && col_index === 0) {
+            // 处理
+            const index = preText.current.indexOf(". ");
+            if (preText.current.length <= index + 2) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
+          } else if (
+            sheet.enterType === "addRowMergeAndIndex" &&
+            !_.includes(sheet.enterIndexExcludeCols, col_index) &&
+            !_.includes(sheet.enterExcludeCols, col_index)
+          ) {
+            // 处理
+            const index = preText.current.indexOf(". ");
+            if (preText.current.length <= index + 2) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
+          }
+        }
       } /* else if (
             e.key === "ArrowUp" &&
             draftCtx.luckysheetCellUpdate.length > 0
@@ -246,13 +292,7 @@ const InputBox: React.FC = () => {
             formulaMoveEvent("right", ctrlKey, shiftKey, event);
           } */
     },
-    [
-      context.luckysheetCellUpdate.length,
-      refs.cellInput,
-      setContext,
-      context.luckysheet_select_save,
-      context.currentSheetId,
-    ]
+    [context.luckysheetCellUpdate.length, refs.cellInput, setContext, col_index]
   );
 
   const onChange = useCallback(

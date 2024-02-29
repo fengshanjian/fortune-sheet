@@ -657,17 +657,19 @@ export function handleGlobalKeyDown(
       // selectHightlightShow();
     } else if (kstr === "Delete" || kstr === "Backspace") {
       if (!allowEdit) return;
-      if (ctx.activeImg != null) {
-        removeActiveImage(ctx);
-      } else {
-        deleteSelectedCellText(ctx);
-      }
+      if (ctx.luckysheetfile[0].excelType !== "PHA") {
+        if (ctx.activeImg != null) {
+          removeActiveImage(ctx);
+        } else {
+          deleteSelectedCellText(ctx);
+        }
 
-      jfrefreshgrid(ctx, null, undefined);
-      e.preventDefault();
-      // } else if (kstr === "Backspace" && imageCtrl.currentImgId != null) {
-      //   imageCtrl.removeImgItem();
-      //   e.preventDefault();
+        jfrefreshgrid(ctx, null, undefined);
+        e.preventDefault();
+        // } else if (kstr === "Backspace" && imageCtrl.currentImgId != null) {
+        //   imageCtrl.removeImgItem();
+        //   e.preventDefault();
+      }
     } else if (
       kstr === "ArrowUp" ||
       kstr === "ArrowDown" ||
@@ -701,24 +703,26 @@ export function handleGlobalKeyDown(
         kcode !== 18
       ) {
         // 激活输入框，并将按键输入到输入框
-        const last =
-          ctx.luckysheet_select_save![ctx.luckysheet_select_save!.length - 1];
+        if (ctx.luckysheetfile[0].excelType !== "PHA") {
+          const last =
+            ctx.luckysheet_select_save![ctx.luckysheet_select_save!.length - 1];
 
-        const row_index = last.row_focus;
-        const col_index = last.column_focus;
+          const row_index = last.row_focus;
+          const col_index = last.column_focus;
 
-        ctx.luckysheetCellUpdate = [row_index, col_index];
-        cache.overwriteCell = true;
+          ctx.luckysheetCellUpdate = [row_index, col_index];
+          cache.overwriteCell = true;
 
-        // if (kstr === "Backspace") {
-        //   $("#luckysheet-rich-text-editor").html("<br/>");
-        // }
-        handleFormulaInput(ctx, fxInput, cellInput, kcode);
-        // formula.functionInputHanddler(
-        //   $("#luckysheet-functionbox-cell"),
-        //   $("#luckysheet-rich-text-editor"),
-        //   kcode
-        // );
+          // if (kstr === "Backspace") {
+          //   $("#luckysheet-rich-text-editor").html("<br/>");
+          // }
+          handleFormulaInput(ctx, fxInput, cellInput, kcode);
+          // formula.functionInputHanddler(
+          //   $("#luckysheet-functionbox-cell"),
+          //   $("#luckysheet-rich-text-editor"),
+          //   kcode
+          // );
+        }
       }
     }
   }

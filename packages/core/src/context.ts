@@ -475,6 +475,15 @@ export function getFlowdata(ctx?: Context, id?: string | null) {
   return ctx.luckysheetfile?.[i]?.data;
 }
 
+export function getSheet(ctx?: Context, id?: string | null) {
+  if (!ctx) return null;
+  const i = getSheetIndex(ctx, id || ctx.currentSheetId);
+  if (_.isNil(i)) {
+    return null;
+  }
+  return ctx.luckysheetfile?.[i];
+}
+
 function calcRowColSize(ctx: Context, rowCount: number, colCount: number) {
   ctx.visibledatarow = [];
   ctx.rh_height = 0;

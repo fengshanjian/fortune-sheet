@@ -11513,6 +11513,7 @@ export default {
     noMulti:
       "Cannot perform this operation on multiple selection areas, please select a single area",
     cannotDeleteAllRow: "Cannot delete all rows",
+    cannotDelete: "Cannot delete",
     cannotDeleteAllColumn: "Cannot delete all columns",
     cannotDeleteRowReadOnly: "Cannot delete row readonly",
     cannotDeleteColumnReadOnly: "Cannot delete column readonly",

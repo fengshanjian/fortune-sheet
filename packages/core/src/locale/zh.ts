@@ -11547,6 +11547,7 @@ export default {
     generateNewMatrix: "生成新矩阵",
     noMulti: "无法对多重选择区域执行此操作,请选择单个区域",
     cannotDeleteAllRow: "无法删除所有行",
+    cannotDelete: "无法删除",
     cannotDeleteAllColumn: "无法删除所有列",
     cannotDeleteRowReadOnly: "无法删除只读行",
     cannotDeleteColumnReadOnly: "无法删除只读列",

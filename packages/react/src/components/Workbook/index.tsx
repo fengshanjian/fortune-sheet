@@ -273,18 +273,17 @@ const Workbook = React.forwardRef<WorkbookInstance, Settings & AdditionalProps>(
     const setContextWithProduce = useCallback(
       (recipe: (ctx: Context) => void, options: SetContextOptions = {}) => {
         setContext((ctx_) => {
-          let result = ctx_;
-          const [newCtx, patches, inversePatches] = produceWithPatches(
+          let [result, patches, inversePatches] = produceWithPatches(
             ctx_,
             concatProducer(recipe, triggerGroupValuesRefresh)
           );
-          result = newCtx;
+
           if (patches.length > 0 && !options.noHistory) {
             if (options.logPatch) {
               // eslint-disable-next-line no-console
               console.info("patch", patches);
             }
-            const filteredPatches = filterPatch(patches);
+            let filteredPatches = filterPatch(patches);
             if (filteredPatches.length > 0) {
               newPatches = filteredPatches;
               const [newCtx1, patches1, inversePatches1] = produceWithPatches(
@@ -292,10 +291,20 @@ const Workbook = React.forwardRef<WorkbookInstance, Settings & AdditionalProps>(
                 addtionProducer
               );
               if (patches1.length > 0) {
-                result = newCtx1;
-                patches.push(...patches1);
-                inversePatches.push(...inversePatches1);
-                filteredPatches.push(...filterPatch(patches1));
+                // result = newCtx1;
+                // patches.push(...patches1);
+                // inversePatches.push(...inversePatches1);
+                // filteredPatches.push(...filterPatch(patches1));
+                const [newCtx2, paches2, inversePatches2] = produceWithPatches(
+                  ctx_,
+                  (__ctx) => {
+                    _.assign(__ctx, newCtx1);
+                  }
+                );
+                result = newCtx2;
+                patches = paches2;
+                inversePatches = inversePatches2;
+                filteredPatches = filterPatch(paches2);
               }
             }
 

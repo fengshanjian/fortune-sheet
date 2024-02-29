@@ -305,7 +305,14 @@ const ContextMenu: React.FC = () => {
                       return;
                     }
                     try {
-                      deleteRowCol(draftCtx, deleteRowColOp);
+                      if (
+                        draftCtx.luckysheetfile[0].excelType === "PHA" &&
+                        deleteRowColOp.start <= 1
+                      ) {
+                        showAlert(rightclick.cannotDelete, "ok");
+                      } else {
+                        deleteRowCol(draftCtx, deleteRowColOp);
+                      }
                     } catch (e: any) {
                       if (e.message === "readOnly") {
                         showAlert(rightclick.cannotDeleteRowReadOnly, "ok");

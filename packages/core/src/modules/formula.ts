@@ -1144,6 +1144,7 @@ export function execfunction(
   */
 
   ctx.formulaCache.parser.context = ctx;
+
   const { result, error: formulaError } = ctx.formulaCache.parser.parse(
     txt.substring(1),
     { sheetId: id || ctx.currentSheetId }
@@ -1182,7 +1183,11 @@ export function execfunction(
   */
 
   // console.log(result, txt);
-  return [true, _.isNil(formulaError) ? result : formulaError, txt];
+  const resultStr =
+    // eslint-disable-next-line no-nested-ternary
+    typeof result === "string" ? result : result === null ? null : "";
+
+  return [true, _.isNil(formulaError) ? resultStr : formulaError, txt];
 }
 
 function insertUpdateDynamicArray(ctx: Context, dynamicArrayItem: any) {

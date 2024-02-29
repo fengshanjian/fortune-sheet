@@ -140,7 +140,6 @@ export function setCellValue(
   // 若采用深拷贝，初始化时的单元格属性丢失
   // let cell = $.extend(true, {}, d[r][c]);
   let cell = d[r][c];
-
   let vupdate;
 
   if (_.isPlainObject(v)) {
@@ -247,41 +246,46 @@ export function setCellValue(
         vupdate
       )
     ) {
-      cell.v = parseFloat(vupdate);
+      cell.m = vupdateStr;
+      cell.v = vupdate;
       if (_.isNil(cell.ct)) {
-        cell.ct = { fa: "General", t: "n" };
+        cell.ct = { fa: "@", t: "s" };
       }
+      // cell.v = parseFloat(vupdate);
+      // if (_.isNil(cell.ct)) {
+      //   cell.ct = { fa: "General", t: "n" };
+      // }
 
-      if (cell.v === Infinity || cell.v === -Infinity) {
-        cell.m = cell.v.toString();
-      } else {
-        if (cell.v.toString().indexOf("e") > -1) {
-          let len;
-          if (cell.v.toString().split(".").length === 1) {
-            len = 0;
-          } else {
-            len = cell.v.toString().split(".")[1].split("e")[0].length;
-          }
-          if (len > 5) {
-            len = 5;
-          }
+      // if (cell.v === Infinity || cell.v === -Infinity) {
+      //   cell.m = cell.v.toString();
+      // } else {
+      //   if (cell.v.toString().indexOf("e") > -1) {
+      //     let len;
+      //     if (cell.v.toString().split(".").length === 1) {
+      //       len = 0;
+      //     } else {
+      //       len = cell.v.toString().split(".")[1].split("e")[0].length;
+      //     }
+      //     if (len > 5) {
+      //       len = 5;
+      //     }
 
-          cell.m = cell.v.toExponential(len).toString();
-        } else {
-          const v_p = Math.round(cell.v * 1000000000) / 1000000000;
-          if (_.isNil(cell.ct)) {
-            const mask = genarate(v_p);
-            if (mask != null) {
-              cell.m = mask[0].toString();
-            }
-          } else {
-            const mask = update(cell.ct.fa!, v_p);
-            cell.m = mask.toString();
-          }
+      //     cell.m = cell.v.toExponential(len).toString();
+      //   } else {
+      //     const v_p = Math.round(cell.v * 1000000000) / 1000000000;
+      //     if (_.isNil(cell.ct)) {
+      //       const mask = genarate(v_p);
+      //       if (mask != null) {
+      //         cell.m = mask[0].toString();
+      //       }
+      //     } else {
+      //       const mask = update(cell.ct.fa!, v_p);
+      //       cell.m = mask.toString();
+      //     }
 
-          // cell.m = mask[0].toString();
-        }
-      }
+      //     // cell.m = mask[0].toString();
+      //   }
+      // }
     } else if (!_.isNil(cell.ct) && cell.ct.fa === "@") {
       cell.m = vupdateStr;
       cell.v = vupdate;
